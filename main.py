@@ -99,7 +99,6 @@ class Game:
         self.player3 = BaseBot(yellow, list(self.board.board_dict.keys()), '3', self.messageQueue)
         self.player4 = BaseBot(green, list(self.board.board_dict.keys()), '4', self.messageQueue)
         self.player_list = [self.player1, self.player2, self.player3, self.player4]
-        self.player_list = [self.player1, self.player2]
         curses.curs_set(0)
         stdscr.nodelay(True)        # Enable non-blocking mode
         stdscr.timeout(100)         # Set a timeout for getch()
@@ -132,9 +131,9 @@ class Game:
             #self.currentAttackPath = [] # stop displaying attack paths
 
             # check for player turns
+            self.checkForWinner()
             if not self.winner and frames <= 0 and (not self.paused or self.stepMode):
                 frames = self.turnTime
-                self.checkForWinner()
                 self.playersPlay()        
 
     def checkForWinner(self):
