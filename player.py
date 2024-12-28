@@ -9,6 +9,21 @@ class Player:
         self.myname = myname
         self.maxTriesForActions = 100
         self.msgqueue = msgqueue
+        # for stats
+        self.attackRatio = [0,0]
+        self.defendRatio = [0,0]
+        self.maxterritories = 0
+        self.placedtroops = 0
+
+    def gainATerritory(self, terrkey):
+        self.myOwnedTerritories.append(terrkey)
+        self.amountOfOwned += 1
+        if self.maxterritories < self.amountOfOwned:
+            self.maxterritories = self.amountOfOwned
+
+    def loseATerritory(self, terrkey):
+        self.myOwnedTerritories.remove(terrkey)
+        self.amountOfOwned -= 1
 
     def place_troops(self, board_obj):
         available = self.amountOfOwned
@@ -16,6 +31,8 @@ class Player:
             terrkey = self.pickATerritoryPlaceTroops()
             if terrkey in self.myOwnedTerritories:
                 board_obj.addTroops(terrkey, available, self.color)
+                # stats
+                self.placedtroops += available
                 return True
         return False
 

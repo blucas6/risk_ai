@@ -27,11 +27,34 @@ class MessageQueue:
         while len(self.msgs) > self.maxMsgs:
             del self.msgs[0]
 
+class EndGameStats:
+    def __init__(self, winner, totalturns, player_list):
+        self.winner = winner
+        self.totalTurns = totalturns
+        self.totalTroops = sum(p.placedtroops for p in player_list)
+        self.player_list = player_list
+
+    def printInfo(self, msgqueue: MessageQueue):
+        msgqueue.addMessage(f'**Winner: Player {self.winner}!**')
+        msgqueue.addMessage(f' Total Turn Count: {self.totalTurns}')
+        msgqueue.addMessage(f' Total Troop Count: {self.totalTroops}')
+        for p in self.player_list:
+            msgqueue.addMessage(f' Player {p.myname}')
+            if p.attackRatio[1] == 0:
+                ratio = 0
+            else:
+                ratio = round((p.attackRatio[0]/p.attackRatio[1])*100,2)
+            msgqueue.addMessage(f'  Attack Winrate: {ratio}% [{p.attackRatio[0]}/{p.attackRatio[1]}]')
+            if p.defendRatio[1] == 0:
+                ratio = 0
+            else:
+                ratio = round((p.defendRatio[0]/p.defendRatio[1])*100,2)
+            msgqueue.addMessage(f'  Defend Winrate: {ratio}% [{p.defendRatio[0]}/{p.defendRatio[1]}]')
+            msgqueue.addMessage(f'  Max Territories: {p.maxterritories}')
+
 class Game:
     def __init__(self):
-        self.turnTime = 3
-        self.TurnIndicatorLocation = [1, 40]
-        self.attackPathToken = '#'
+        self.turnCount = 0
         self.running = True
         self.paused = False
         self.currentPlayer = 0
@@ -39,11 +62,19 @@ class Game:
 
         self.currentAttackPath = []
         self.currentAttackColor = None
+        self.stepMode = False
 
+        self.winner = ''
+        self.EndGameStats = None
+
+        # MODIFIABLE
+        self.printAttackDetails = False
+        self.turnTime = 0
+        self.attackPathToken = '#'
+        self.TurnIndicatorLocation = [1, 40]
+        self.endGameStatsLocation = [7,40]
         self.debugPanel = [0, 63]
 
-        self.printAttackDetails = True
-        self.stepMode = False
 
     def start(self, stdscr):
         # can only start color after wrapper is called
@@ -68,7 +99,7 @@ class Game:
         self.player3 = BaseBot(yellow, list(self.board.board_dict.keys()), '3', self.messageQueue)
         self.player4 = BaseBot(green, list(self.board.board_dict.keys()), '4', self.messageQueue)
         self.player_list = [self.player1, self.player2, self.player3, self.player4]
-
+        self.player_list = [self.player1, self.player2]
         curses.curs_set(0)
         stdscr.nodelay(True)        # Enable non-blocking mode
         stdscr.timeout(100)         # Set a timeout for getch()
@@ -100,10 +131,19 @@ class Game:
 
             #self.currentAttackPath = [] # stop displaying attack paths
 
-            # check for turn
-            if frames <= 0 and (not self.paused or self.stepMode):
+            # check for player turns
+            if not self.winner and frames <= 0 and (not self.paused or self.stepMode):
                 frames = self.turnTime
-                self.playersPlay()
+                self.checkForWinner()
+                self.playersPlay()        
+
+    def checkForWinner(self):
+        active = [p for p in self.player_list if p.amountOfOwned > 0]
+        if len(active) == 1:
+            self.winner = active[0].myname
+            self.EndGameStats = EndGameStats(
+                self.winner, self.turnCount, self.player_list)
+            self.EndGameStats.printInfo(self.messageQueue)
 
     def playersPlay(self):
         # get the current player
@@ -129,14 +169,15 @@ class Game:
                 self.nextPlayer()
         else:
             self.currentPlayer += 1
-            self.currentPlayer = self.currentPlayer % 4
+            self.currentPlayer = self.currentPlayer % len(self.player_list)
 
         if self.stepMode:
             self.stepMode = False
 
     def nextPlayer(self):
+        self.turnCount += 1
         self.currentPlayer += 1
-        self.currentPlayer = self.currentPlayer % 4
+        self.currentPlayer = self.currentPlayer % len(self.player_list)
         self.messageQueue.addMessage(f'-Player {self.player_list[self.currentPlayer].myname} turn-')
         self.currentAttackPath = []
 
@@ -194,16 +235,14 @@ class Game:
             # add troops according to the current player index
             self.board.addTroops(possible_terrs[terrind], 1, player_list[player_ind].color)
             
-            # increase that players land amount
-            player_list[player_ind].amountOfOwned += 1
-            # add that to the list of owned territories
-            player_list[player_ind].myOwnedTerritories.append(possible_terrs[terrind])
+            # give that player the territory
+            player_list[player_ind].gainATerritory(possible_terrs[terrind])
 
             # remove territory from consideration
             del possible_terrs[terrind]
 
             player_ind += 1
-            player_ind = player_ind % 4
+            player_ind = player_ind % len(self.player_list)
 
     def doAttack(self, terrkeyAttack, terrkeyFrom):
         terrAttacker = self.board.getTerritory(terrkeyFrom)
@@ -211,6 +250,8 @@ class Game:
 
         playerA = self.getPlayerFromColor(terrAttacker.color)
         playerB = self.getPlayerFromColor(terrDefender.color)
+        if playerA == None or playerB == None:
+            self.messageQueue.addMessage('ERROR: Failed to find player!')
 
         if terrAttacker.name == '???' or terrDefender.name == '???':
             self.messageQueue.addMessage('ERROR: Attack failed, territories are not real')
@@ -232,6 +273,9 @@ class Game:
                 rollsA = 1
             else:
                 # attacker lost, do nothing
+                playerA.attackRatio[1] += 1
+                playerB.defendRatio[0] += 1
+                playerB.defendRatio[1] += 1
                 self.messageQueue.addMessage('Result: Attacker loses')
                 break
             
@@ -244,10 +288,11 @@ class Game:
                 terrDefender.troops = terrAttacker.troops - 1
                 terrDefender.color = terrAttacker.color
                 terrAttacker.troops = 1
-                playerA.amountOfOwned += 1
-                playerA.myOwnedTerritories.append(terrkeyAttack)
-                playerB.amountOfOwned -= 1
-                playerB.myOwnedTerritories.remove(terrkeyAttack)
+                playerA.gainATerritory(terrkeyAttack)
+                playerA.attackRatio[0] += 1
+                playerA.attackRatio[1] += 1
+                playerB.defendRatio[1] += 1
+                playerB.loseATerritory(terrkeyAttack)
                 self.messageQueue.addMessage('Result: Attacker wins')
                 break
 
@@ -304,6 +349,7 @@ class Game:
                     status += ' fortify'
             stdscr.addstr(self.TurnIndicatorLocation[0]+i, self.TurnIndicatorLocation[1],
                       status, p.color)
+
         # print attack path
         for pos in self.currentAttackPath:
             stdscr.addstr(pos[0], pos[1], self.attackPathToken, self.currentAttackColor)
