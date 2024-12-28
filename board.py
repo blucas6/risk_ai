@@ -1,4 +1,6 @@
 import os
+import copy
+import math
 
 class Territory:
     def __init__(self, name, pos):
@@ -6,7 +8,7 @@ class Territory:
         self.adjecency_list = []
         self.pos = pos
         self.troops = 0
-        self.color = 'white'
+        self.color = None
     
     def connectto(self, territory_o: 'Territory'):
         self.adjecency_list.append(territory_o)
@@ -17,20 +19,25 @@ class Territory:
         return False
 
 class Board:
-    def __init__(self):
+    def __init__(self, colorwhite, msgqueue, printAttackDetails):
+        self.msgqueue = msgqueue
         self.mapfile = 'board.txt'
         self.maptxt = []
         self.board_dict = {}
+        self.colorwhite = colorwhite
+        self.maxrows = 0
+        self.maxcols = 0
+        self.printAttackDetails = printAttackDetails
         # NORTH AMERICA
         self.board_dict['alaska'] = Territory("Alaska", [1,2])
         self.board_dict['nwt'] = Territory("North West Territory", [1,14])
         self.board_dict['alberta'] = Territory("Alberta", [4,9])
         self.board_dict['ontario'] = Territory("Ontario", [4,17])
         self.board_dict['quebec'] = Territory("Quebec", [4,24])
-        self.board_dict['wus'] = Territory("Western United States", [7,12])
+        self.board_dict['wus'] = Territory("Western United States", [7,11])
         self.board_dict['eus'] = Territory("Eastern United States", [7,20])
-        self.board_dict['greenland'] = Territory("Greenland", [1,31])
-        self.board_dict['ca'] = Territory("Central America", [10,13])
+        self.board_dict['greenland'] = Territory("Greenland", [1,32])
+        self.board_dict['ca'] = Territory("Central America", [9,12])
 
         self.connections('alaska', 'greenland')
         self.connections('alaska', 'nwt')
@@ -51,16 +58,76 @@ class Board:
         self.loadmap()
 
     def addTroops(self, terrkey, num, playercolor):
+        self.msgqueue.addMessage(f'Adding {num} troops at {terrkey}')
         terr = self.getTerritory(terrkey)
         terr.troops += num
+        terr.color = playercolor
+    
+    def removeTroops(self, terrkey, num):
+        self.msgqueue.addMessage(f'Removing {num} troops from {terrkey}')
+        terr = self.getTerritory(terrkey)
+        terr.troops -= num
 
+    def fortificationIsValid(self, terrkeyIn, terrkeyOut, mycolor):
+        terrIn = self.getTerritory(terrkeyIn)
+        terrOut = self.getTerritory(terrkeyOut)
+
+        if terrIn.name == '???' or terrOut.name == '???':
+            self.msgqueue.addMessage('ERROR: Fortify failed, territories are not real')
+            return False
+        
+        # make sure player owns both territories
+        if terrIn.color != mycolor or terrOut.color != mycolor:
+            if self.printAttackDetails:
+                self.msgqueue.addMessage(' Invalid fortify: owner relationship invalid')
+            return False
+
+        return self.adjacencyIsValid(terrkeyIn, terrkeyOut)
+
+    def adjacencyIsValid(self, terrkeyA, terrkeyB):
+        terrA = self.getTerritory(terrkeyA)
+        terrB = self.getTerritory(terrkeyB)
+
+        if terrA.name == '???' or terrB.name == '???':
+            self.msgqueue.addMessage('ERROR: Attack failed, territories are not real')
+            return False
+        
+        if terrB in terrA.adjecency_list:
+            return True
+        
+        if self.printAttackDetails:
+            self.msgqueue.addMessage(' Invalid move, territories are not adjecent')
+        return False
+
+    def attackIsValid(self, terrkeyAttack, terrkeyFrom, mycolor):        
+        terrAttack = self.getTerritory(terrkeyAttack)
+        terrFrom = self.getTerritory(terrkeyFrom)
+
+        if terrAttack.name == '???' or terrFrom.name == '???':
+            self.msgqueue.addMessage('ERROR: Attack failed, territories are not real')
+            return False
+        
+        # invalid if the player does not own the owned territory
+        # or if the attacking territory is owned by that player
+        if terrFrom.color != mycolor or terrAttack.color == mycolor:
+            if self.printAttackDetails:
+                self.msgqueue.addMessage(' Invalid attack, owner relationship invalid')
+            return False
+        
+        # must have enough troops
+        if terrFrom.troops <= 1:
+            if self.printAttackDetails:
+                self.msgqueue.addMessage(' Invalid attack, player does not have enough troops')
+            return False
+
+        return self.adjacencyIsValid(terrkeyAttack, terrkeyFrom)
 
     def getTerritory(self, terrkey):
         if terrkey in self.board_dict:
             return self.board_dict[terrkey]
         else:
-            print(f'ERROR: Wrong key -> {terrkey}')
-            return Territory('???')
+            self.msgqueue.addMessage(f'ERROR: Wrong key -> {terrkey}')
+            return Territory('???', [0,0])
 
     def connections(self, terra, terrb):
         terrA = self.getTerritory(terra)
@@ -73,10 +140,44 @@ class Board:
             terrB.connectto(terrA)
 
     def loadmap(self):
+        maxcols = 0
         if os.path.exists(self.mapfile):
             with open(self.mapfile) as mf:
                 lines = mf.readlines()
+                self.maxrows = len(lines)
                 for line in lines:
-                    self.maptxt.append(line)
+                    if len(lines) > maxcols:
+                        maxcols = len(lines)
+                    self.maptxt.append(line.replace('x', ' '))
+            self.maxcols = maxcols
         else:
-            print(f'ERROR: No map file -> {self.mapfile}')
+            self.msgqueue.addMessage(f'ERROR: No map file -> {self.mapfile}')
+
+    def printTroops(self, stdscr):
+        for name, terr in self.board_dict.items():
+            if terr.color == None:
+                stdscr.addstr(terr.pos[0], terr.pos[1], '0', self.colorwhite)
+            else:
+                stdscr.addstr(terr.pos[0], terr.pos[1], str(terr.troops), terr.color)
+
+    def drawPath(self, pos1, pos2):
+        normal = self.distance(pos1, pos2)
+        # xplus = self.distance(pos1, [pos2[0], pos2[1]+self.maxcols])
+        # xminus = self.distance(pos1, [pos2[0], ])
+        points = []
+        currp = copy.deepcopy(pos1)
+        while currp != pos2:
+            if currp[0] < pos2[0]:
+                currp[0] += 1
+            elif currp[0] > pos2[0]:
+                currp[0] -= 1
+
+            if currp[1] < pos2[1]:
+                currp[1] += 1
+            elif currp[1] > pos2[1]:
+                currp[1] -= 1
+            points.append(copy.deepcopy(currp))
+        return points[:-1]
+    
+    def distance(self, pos1, pos2):
+        return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
