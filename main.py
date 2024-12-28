@@ -29,7 +29,7 @@ class MessageQueue:
 
 class Game:
     def __init__(self):
-        self.turnTime = 3
+        self.turnTime = 0
         self.TurnIndicatorLocation = [1, 40]
         self.attackPathToken = '#'
         self.running = True
@@ -42,7 +42,7 @@ class Game:
 
         self.debugPanel = [0, 63]
 
-        self.printAttackDetails = True
+        self.printAttackDetails = False
         self.stepMode = False
 
     def start(self, stdscr):

@@ -1,0 +1,37 @@
+train loop
+initalize player agents
+for each player
+    place_troops_agent = tdactorcritic
+    initalize critic 
+    initalize actor
+    attack_fortify_agent = tdactorcritic
+    initalize actor
+    set critic to place troops critic to share value function
+start training
+for each player
+    call initalize training
+time_step = 1
+Game Loop, for 10000 steps:
+    if time_step % update_time_step == 0:
+        for all players:
+            call update_actor_and_critic for the place troops and attack/fortify agent
+            call evaluation graphs if possible
+    For all players:
+        First Player:
+            Place Troops:
+                This is all in the place troops agent
+                call get observation to set the observation. Save this observation as the first state
+                call set action to get an action from this
+                call sample action from distribution to get an action. This will return a scalar, which will be the index
+                of the territory to put troops in.
+                Do the action. set a reward based on this action. This would be equal to the number of troops placed
+                Save the new board state as a new observation and call it next state
+                call add experience, passing in the state, next_state, action_index, and reward
+                If the action, was illegal, restart this phase.
+            Attack:
+                This is with the attack and fortify agent. Follow the same steps. If the action was illegal, restart the phase.
+                Only move to the fortify phase after the do nothing action is selected.
+            Fortify:
+                Follow the same steps. If the action was illegal restart the phase. After one valid action, go to next phase.
+    
+     
