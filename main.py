@@ -4,11 +4,14 @@ import time
 
 from board import Board
 from player import Player
+from basebot import BaseBot
 
 class MessageQueue:
-    def __init__(self, maxMsgs):
+    def __init__(self, printPos, termrows, termcols):
         self.msgs = []
-        self.max = maxMsgs
+        self.printPos = printPos
+        self.maxMsgs = termrows - printPos[0]
+        self.maxcols = termcols - printPos[1]
 
     def addMessage(self, msg, mylist=[]):
         if mylist:
@@ -16,8 +19,12 @@ class MessageQueue:
             for item in mylist:
                 msg += str(item)+' '
             msg += ']'
-        self.msgs.append(msg)
-        if len(self.msgs) > self.max:
+        if len(msg) > self.maxcols:
+            self.msgs.append(msg[:self.maxcols-1])
+            self.msgs.append(msg[self.maxcols-1:])
+        else:
+            self.msgs.append(msg)
+        while len(self.msgs) > self.maxMsgs:
             del self.msgs[0]
 
 class Game:
@@ -34,13 +41,14 @@ class Game:
         self.currentAttackColor = None
 
         self.debugPanel = [0, 63]
-        self.messageQueue = MessageQueue(30)
 
         self.printAttackDetails = True
         self.stepMode = False
 
     def start(self, stdscr):
         # can only start color after wrapper is called
+        self.termrows, self.termcols = stdscr.getmaxyx()
+        self.messageQueue = MessageQueue(self.debugPanel, self.termrows, self.termcols)
         curses.start_color()
         curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
         curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
@@ -55,10 +63,10 @@ class Game:
 
         # pass color to objects
         self.board = Board(white, self.messageQueue, self.printAttackDetails)
-        self.player1 = Player(red, list(self.board.board_dict.keys()), '1')
-        self.player2 = Player(blue, list(self.board.board_dict.keys()), '2')
-        self.player3 = Player(yellow, list(self.board.board_dict.keys()), '3')
-        self.player4 = Player(green, list(self.board.board_dict.keys()), '4')
+        self.player1 = BaseBot(red, list(self.board.board_dict.keys()), '1', self.messageQueue)
+        self.player2 = BaseBot(blue, list(self.board.board_dict.keys()), '2', self.messageQueue)
+        self.player3 = BaseBot(yellow, list(self.board.board_dict.keys()), '3', self.messageQueue)
+        self.player4 = BaseBot(green, list(self.board.board_dict.keys()), '4', self.messageQueue)
         self.player_list = [self.player1, self.player2, self.player3, self.player4]
 
         curses.curs_set(0)
@@ -108,7 +116,7 @@ class Game:
             # Phase 1. Place troops on the board
             if self.currentPhase == 1:
                 if not currPlayer.place_troops(self.board):
-                    self.messageQueue.addMessage('Warning: Failed to deploy troops!')
+                    self.messageQueue.addMessage('Warning: Failed to deploy troops reached max tries!')
                 self.currentPhase = 2
             # Phase 2. Attack
             elif self.currentPhase == 2:
