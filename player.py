@@ -35,7 +35,7 @@ class Player:
                 self.placedtroops += available
                 return True
         return False
-
+    #returns a tuple
     def attack(self):
         return self.pickATerritoryAttackTo(), self.pickATerritoryAttackFrom()
 
@@ -43,11 +43,15 @@ class Player:
         terrIn = self.pickATerritoryFortifyTo()
         terrOut = self.pickATerritoryFortifyFrom()
         self.msgqueue.addMessage(f'Fortify {terrIn} from {terrOut}')
-        if board_obj.fortificationIsValid(terrIn, terrOut, self.color):
+        move = board_obj.fortificationIsValid(terrIn, terrOut, self.color)
+        if move:
             troops = board_obj.getTerritory(terrOut).troops - 1
             if troops > 0:
                 board_obj.addTroops(terrIn, troops, self.color)
                 board_obj.removeTroops(terrOut, troops)
+        return move
+    def UpdateObservation(self,board_obj,phase,player,move_legality):
+        pass
 
     def pickATerritory(self):
         return self.terrList[random.randint(0,len(self.terrList)-1)]

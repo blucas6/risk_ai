@@ -34,33 +34,40 @@ class TDACBot(Player):
     def set_observation(self,board,phase,player):
         #returns reshaped observation space
         pass
-    def sample_attack_action(self,board,phase,player):
-
-        pass
-    def sample_fortify_action(self):
-        pass
+    def sample_attack_fortify_action(self,board,phase,player):
+        #put the observation in a format that can be used by the network
+        observation = self.set_observation(board,phase,player)
+        #set the current state observation
+        self.attack_fortify_agent.get_observation(observation)
+        #sample an attack from it
+        action = self.attack_fortify_agent.set_action()
+        action_index = self.attack_fortify_agent.sample_action_from_distribution(action)
+        #return action_index as a tuple of (row,column)
+        #if the bot chooses to do nothing, it will return (-1,-1)
+        if action_index == len(action) - 1:
+            return (-1,-1)
+        num_of_territories = (len(action) - 1) // 2
+        #transform the action index back to a tuple (row, column) of the original NxN attack matrix
+        return (action_index // num_of_territories, action_index % num_of_territories)
     def add_experience_to_place_troop_agent(self,state,next_state,action_index,reward):
         self.place_troops_agent.add_experience(state,next_state,action_index,reward)
     def add_experience_to_attack_fortify_agent(self,state,next_state,action_index,reward):
         self.attack_fortify_agent.add_experience(state,next_state,action_index,reward)
+    ####OVERRIDE FUNCTIONS####
+    def attack(self):
+        #missing the board,phase, and player info
+        return self.sample_attack_fortify_action()
+    def fortify(self, board_obj):
+        terrIn,terrOut = self.sample_attack_fortify_action()
+        self.msgqueue.addMessage(f'Fortify {terrIn} from {terrOut}')
+        move = board_obj.fortificationIsValid(terrIn, terrOut, self.color)
+        if move:
+            troops = board_obj.getTerritory(terrOut).troops - 1
+            if troops > 0:
+                board_obj.addTroops(terrIn, troops, self.color)
+                board_obj.removeTroops(terrOut, troops)
+        return move
     #return the index to place troops in the territory array.
     def pickATerritoryPlaceTroops(self):
         pass
-    
-    def pickATerritoryAttackTo(self):
-        for t in range(self.maxTriesForActions):
-            pass
-        self.msgqueue.addMessage('Warning: Failed to choose an attack target reached max tries!')
-        return None
-    def pickATerritoryAttackFrom(self):
-        return self.myOwnedTerritories[
-            random.randint(0, len(self.myOwnedTerritories)-1)]
-    
-    def pickATerritoryFortifyFrom(self):
-        return self.myOwnedTerritories[
-            random.randint(0, len(self.myOwnedTerritories)-1)]
-    
-    def pickATerritoryFortifyTo(self):
-        return self.myOwnedTerritories[
-            random.randint(0, len(self.myOwnedTerritories)-1)]
 
