@@ -67,6 +67,10 @@ class TDACBot(Player):
                 board_obj.addTroops(terrIn, troops, self.color)
                 board_obj.removeTroops(terrOut, troops)
         return move
+    def InitialObservation(self,board_obj,phase,player):
+        pass
+    def UpdateObservation(self,board_obj,phase,player,move_legality):
+        pass
     #return the index to place troops in the territory array.
     def pickATerritoryPlaceTroops(self):
         pass

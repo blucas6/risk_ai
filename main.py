@@ -154,6 +154,8 @@ class Game:
 
         # check if player can play
         if currPlayer.amountOfOwned > 0:
+            #store initial observation
+            currPlayer.InitialObservation(self.board,self.currentPhase,self.currentPlayer)
             #store bool to see if it made a valid move
             valid_move = Move().illegal_move
             # Phase 1. Place troops on the board
