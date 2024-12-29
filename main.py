@@ -5,59 +5,8 @@ import time
 from board import Board
 from player import Player
 from basebot import BaseBot
-
-class MessageQueue:
-    def __init__(self, printPos, termrows, termcols):
-        self.msgs = []
-        self.printPos = printPos
-        self.maxMsgs = termrows - printPos[0]
-        self.maxcols = termcols - printPos[1]
-
-    def listToString(self, mylist):
-        msg = ' ['
-        for item in mylist:
-            msg += str(item)+' '
-        msg += ']'
-        return msg
-
-    def addMessage(self, msg, mylist=[], mylist2d=[]):
-        if mylist:
-            msg += self.listToString(mylist)
-        if mylist2d:
-            for i in range(mylist2d):
-                msg += self.listToString()
-        while len(msg) > self.maxcols:
-            self.msgs.append(msg[:self.maxcols-1])
-            msg = msg[self.maxcols-1:]
-        self.msgs.append(msg)
-        while len(self.msgs) > self.maxMsgs:
-            del self.msgs[0]
-
-# ENDGAMESTATS CLASS
-class EndGameStats:
-    def __init__(self, winner, totalturns, player_list):
-        self.winner = winner
-        self.totalTurns = totalturns
-        self.totalTroops = sum(p.placedtroops for p in player_list)
-        self.player_list = player_list
-
-    def printInfo(self, msgqueue: MessageQueue):
-        msgqueue.addMessage(f'**Winner: Player {self.winner}!**')
-        msgqueue.addMessage(f' Total Turn Count: {self.totalTurns}')
-        msgqueue.addMessage(f' Total Troop Count: {self.totalTroops}')
-        for p in self.player_list:
-            msgqueue.addMessage(f' Player {p.myname}')
-            if p.attackRatio[1] == 0:
-                ratio = 0
-            else:
-                ratio = round((p.attackRatio[0]/p.attackRatio[1])*100,2)
-            msgqueue.addMessage(f'  Attack Winrate: {ratio}% [{p.attackRatio[0]}/{p.attackRatio[1]}]')
-            if p.defendRatio[1] == 0:
-                ratio = 0
-            else:
-                ratio = round((p.defendRatio[0]/p.defendRatio[1])*100,2)
-            msgqueue.addMessage(f'  Defend Winrate: {ratio}% [{p.defendRatio[0]}/{p.defendRatio[1]}]')
-            msgqueue.addMessage(f'  Max Territories: {p.maxterritories}')
+from messagequeue import MessageQueue
+from endgamestats import EndGameStats
 
 class Move():
     legal_move = 'Legal'
@@ -88,14 +37,20 @@ class Game:
         # MODIFIABLE
         self.printAttackDetails = False         # Extra debug statements
         self.turnTime = 0                       # Frame delay between player turns
+        self.inputTimeout = 10                  # Frame delay between input
         self.attackPathToken = '#'              # Attack path character
         self.TurnIndicatorLocation = [1, 40]    # Where to print the turn indicator
         self.debugPanel = [0, 63]               # Where to print the debug panel
 
+    # Entrance to the program
     def start(self, stdscr):
-        # can only start color after wrapper is called
+        # get max size info
         self.termrows, self.termcols = stdscr.getmaxyx()
+        # MESSAGE QUEUE
         self.messageQueue = MessageQueue(self.debugPanel, self.termrows, self.termcols)
+        
+        # COLORS
+        # can only start color after wrapper is called
         curses.start_color()
         curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
         curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
@@ -108,16 +63,22 @@ class Game:
         green = curses.color_pair(4)
         white = curses.color_pair(5)
 
-        # pass color to objects
+        # BOARD
         self.board = Board(white, self.messageQueue, self.printAttackDetails)
+
+        # PLAYERS
         self.player1 = BaseBot(red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
         self.player2 = BaseBot(blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
         self.player3 = BaseBot(yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)
         self.player4 = BaseBot(green, list(self.board.board_dict.keys()), '4', self.messageQueue, 3)
+        
+        # MODIFY PLAYER LIST TO CHANGE AMOUNT OF PLAYERS
         self.player_list = [self.player1, self.player2, self.player3, self.player4]
+
+        # CURSES SET UP
         curses.curs_set(0)
-        stdscr.nodelay(True)        # Enable non-blocking mode
-        stdscr.timeout(100)         # Set a timeout for getch()
+        stdscr.nodelay(True)                # Enable non-blocking mode
+        stdscr.timeout(self.inputTimeout)   # Set a timeout for getch()
 
         # GAME SETUP
         self.setup()
@@ -131,8 +92,7 @@ class Game:
 
         while self.running:
             #time.sleep(0.1)  # Slight delay to reduce CPU usage
-
-            # decrement frams
+            # decrement frames
             frames -= 1
 
             # EVENTS
@@ -144,23 +104,30 @@ class Game:
             self.printScreen(stdscr)
             stdscr.refresh()
 
-            #self.currentAttackPath = [] # stop displaying attack paths
-
             # check for player turns
             self.checkForWinner()
+            # do a player turn IF
+            #  there is no winner
+            #  we have waited through the turn delay
+            #  we are not paused (step mode bypasses 1 turn of pausing)
             if not self.winner and frames <= 0 and (not self.paused or self.stepMode):
                 frames = self.turnTime
                 self.playersPlay()        
 
+    # Checks for win condition
+    # triggers the end game
     def checkForWinner(self):
         if not self.winner:
             active = [p for p in self.player_list if p.amountOfOwned > 0]
             if len(active) == 1:
+                # load the winner
                 self.winner = active[0].myname
+                # load the stats
                 self.EndGameStats = EndGameStats(
                     self.winner, self.turnCount, self.player_list)
                 self.EndGameStats.printInfo(self.messageQueue)
 
+    # Get a turn from a player
     def playersPlay(self):
         # get the current player
         currPlayer = self.player_list[self.currentPlayer]
@@ -198,6 +165,7 @@ class Game:
         if self.stepMode:
             self.stepMode = False
 
+    # Increment whose turn it is
     def nextPlayer(self):
         self.turnCount += 1
         self.currentPlayer += 1
@@ -205,6 +173,7 @@ class Game:
         self.messageQueue.addMessage(f'-Player {self.player_list[self.currentPlayer].myname} turn-')
         self.currentAttackPath = []
 
+    # Carry out the attack of a player
     def handleAttack(self, currPlayer):
         # find territory in and territory out
         terrkeyAttack, terrkeyFrom = currPlayer.attack()
@@ -234,6 +203,7 @@ class Game:
         self.messageQueue.addMessage('Attacker attacks again!')
         return False, Move().legal_move
 
+    # Deal with events
     def events(self, event):
         # end on enter
         if event in (10,13):
@@ -243,10 +213,14 @@ class Game:
         if event == ord(' '):
             self.paused = not self.paused
 
-        # step
+        # step mode
+        #  bypasses 1 pause state, sets itself back to off after 1 turn
         if event == ord('.'):
             self.stepMode = True
 
+    # Game set up
+    #  Set up the board matrix
+    #  Players get initial random territories
     def setup(self):
         # set up observation space
         self.board.createDefaultTerritoryMatrix(len(self.player_list))
@@ -270,6 +244,7 @@ class Game:
             player_ind += 1
             player_ind = player_ind % len(self.player_list)
 
+    # Perform a players attack
     def doAttack(self, terrkeyAttack, terrkeyFrom):
         terrAttacker, tindex = self.board.getTerritory(terrkeyFrom)
         terrDefender, tindex = self.board.getTerritory(terrkeyAttack)
@@ -328,10 +303,12 @@ class Game:
 
         return attackPath
     
+    # Roll dice and figure out troop losses
     def computeAttack(self, diceA, diceB):
         rollsA, rollsB = self.getRolls(diceA, diceB)
         return self.doRolls(rollsA, rollsB)
     
+    # Returns rolled dice in a sorted array
     def getRolls(self, diceA, diceB):
         pArolls = []
         pBrolls = []
@@ -348,6 +325,7 @@ class Game:
             self.messageQueue.addMessage(f' Rolls A: {pArolls}, Rolls B: {pBrolls}')
         return pArolls, pBrolls
 
+    # Computes troop losses
     def doRolls(self, rollsA, rollsB):
         troopDiffA = 0
         troopDiffB = 0
@@ -361,6 +339,7 @@ class Game:
         
         return troopDiffA, troopDiffB 
 
+    # Prints the screen
     def printScreen(self, stdscr):
         # print the map
         for r,line in enumerate(self.board.maptxt):
@@ -390,6 +369,7 @@ class Game:
         for r,msg in enumerate(self.messageQueue.msgs):
             stdscr.addstr(self.debugPanel[0]+r, self.debugPanel[1], msg)
 
+    # Utility function to figure out the player from a color
     def getPlayerFromColor(self, color):
         for p in self.player_list:
             if p.color == color:

@@ -1,15 +1,21 @@
 import random
 
+# PLAYER CLASS
+#  Default player class
+#  Picks random territories for every action
 class Player:
     def __init__(self, mycolor, terrList, myname, msgqueue, index):
-        self.terrList = terrList        # List of all territories
-        self.color = mycolor
-        self.amountOfOwned = 0          # Amount of territories owned
-        self.myOwnedTerritories = []    # Names of all owned territories
-        self.myname = myname
-        self.maxTriesForActions = 100
+        # Reference to game members
         self.msgqueue = msgqueue
-        self.index = index
+
+        self.terrList = terrList        # List of all territory keys
+        self.color = mycolor            # Color of the player
+        self.amountOfOwned = 0          # Amount of territories owned
+        self.myOwnedTerritories = []    # Keys of all owned territories
+        self.myname = myname            # Player name (number as a string)
+        self.maxTriesForActions = 100   # Default timeout for random actions
+        self.index = index              # Index of the player (for board matrix)
+        
         # for stats
         self.attackRatio = [0,0]
         self.defendRatio = [0,0]
@@ -36,6 +42,7 @@ class Player:
                 self.placedtroops += available
                 return True
         return False
+    
     #returns a tuple
     def attack(self):
         return self.pickATerritoryAttackTo(), self.pickATerritoryAttackFrom()

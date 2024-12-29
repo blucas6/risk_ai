@@ -4,35 +4,52 @@ import math
 
 from player import Player
 
+# TERRITORY CLASS
+#  Holds all info for board territories
 class Territory:
     def __init__(self, name, pos):
-        self.name = name
-        self.adjecency_list = []
-        self.pos = pos
-        self.troops = 0
-        self.color = None
+        self.name = name            # Name of the territory, used for displaying ONLY (not dict key)
+        self.adjecency_list = []    # List of all adjecent territories
+        self.pos = pos              # Position on map, for displaying troops and attacks
+        self.troops = 0             # Amount of troops on territory
+        self.color = None           # Color of player that owns troops
     
+    # Adds a connection to the adjecency list
     def connectto(self, territory_o: 'Territory'):
         self.adjecency_list.append(territory_o)
 
+    # Checks if a territory is connected
     def isConnected(self, territory_o: 'Territory'):
         if territory_o in self.adjecency_list:
             return True
         return False
 
+# BOARD CLASS
+#  Contains all territories and manipulations of the territories
 class Board:
     def __init__(self, colorwhite, msgqueue, printAttackDetails):
         # References to game members
         self.msgqueue = msgqueue
-
-        self.mapfile = 'board.txt'
-        self.maptxt = []
-        self.board_dict = {}
-        self.territoryMatrix = []
-        self.colorwhite = colorwhite
-        self.maxrows = 0
-        self.maxcols = 0
         self.printAttackDetails = printAttackDetails
+
+        # SETTINGS
+        self.mapfile = 'board.txt'          # Where to load the ascii art
+        self.maptxt = []                    # For displaying the map strings
+        self.colorwhite = colorwhite        # Color for displaying
+        self.maxrows = 0            # amount of rows in map file
+        self.maxcols = 0            # amount of cols in map file
+
+        # TERRITORY INFO
+        self.board_dict = {}        # Contains all territories
+                                    # { <key>: <Territory()>, ...}
+                                            
+        self.territoryMatrix = []   # Observation space
+                                    # Rows correspond to players
+                                    # Rows contain all owned troops on territories
+                                    #     t0 t1 t2 ...
+                                    # p1 [ x, x, x, ...]
+                                    # p2 [...]
+
         # NORTH AMERICA
         self.board_dict['alaska'] = Territory('Alaska', [1,3])
         self.board_dict['nwt'] = Territory('North West Territory', [1,14])
@@ -70,8 +87,10 @@ class Board:
         self.connections('peru', 'argentina')
         self.connections('brazil', 'argentina')
 
+        # Load displaying map
         self.loadmap()
 
+    # Any update to the territories must update the observation matrix
     def updateTerritoryMatrix(self, playerindex, territoryindex, troops):
         if (playerindex < len(self.territoryMatrix) and 
             territoryindex < len(self.territoryMatrix[0])):
@@ -80,11 +99,13 @@ class Board:
             self.msgqueue.addMessage(
             f'ERROR: Illegal matrix update P:{playerindex} T:{territoryindex} ({len(self.territoryMatrix)-1},{len(self.territoryMatrix[0])-1})')
 
+    # Set up the space for the observation matrix
     def createDefaultTerritoryMatrix(self, player_amount):
         for p in range(player_amount):
             row = len(list(self.board_dict.keys())) * [0]
             self.territoryMatrix.append(row)
 
+    # Adding an amount of troops to a territory
     def addTroops(self, terrkey, num, player: Player):
         if num != 0:
             self.msgqueue.addMessage(f'Adding {num} troops at {terrkey}')
@@ -93,6 +114,7 @@ class Board:
             terr.color = player.color
             self.updateTerritoryMatrix(player.index, tindex, terr.troops)
         
+    # Setting the amount of troops on a territory to a fixed number
     def setTroops(self, terrkey, num, player: Player):
         self.msgqueue.addMessage(f'Setting {num} troops at {terrkey}')
         terr, tindex = self.getTerritory(terrkey)
@@ -100,6 +122,7 @@ class Board:
         terr.color = player.color
         self.updateTerritoryMatrix(player.index, tindex, terr.troops)
     
+    # Removing an amount of troops from a territory
     def removeTroops(self, terrkey, num, player: Player):
         if num != 0:
             self.msgqueue.addMessage(f'Removing {num} troops from {terrkey}')
@@ -107,6 +130,10 @@ class Board:
             terr.troops -= num
             self.updateTerritoryMatrix(player.index, tindex, terr.troops)
 
+    # Check if fortification
+    #  Includes real territories
+    #  Is owned by the same player
+    #  Are adjecent territories
     def fortificationIsValid(self, terrkeyIn, terrkeyOut, mycolor):
         terrIn, tindex = self.getTerritory(terrkeyIn)
         terrOut, tindex = self.getTerritory(terrkeyOut)
@@ -123,6 +150,7 @@ class Board:
 
         return self.adjacencyIsValid(terrkeyIn, terrkeyOut)
 
+    # Returns if 2 territories are adjecent
     def adjacencyIsValid(self, terrkeyA, terrkeyB):
         terrA, tindex = self.getTerritory(terrkeyA)
         terrB, tindex = self.getTerritory(terrkeyB)
@@ -138,6 +166,11 @@ class Board:
             self.msgqueue.addMessage(' Invalid move, territories are not adjecent')
         return False
 
+    # Checks if attack
+    #  Is between real territories
+    #  Player does not own the attacked territory
+    #  Player owns the territory they attack from
+    #  Player has more than 1 troop to attack with
     def attackIsValid(self, terrkeyAttack, terrkeyFrom, mycolor):        
         terrAttack, tindex = self.getTerritory(terrkeyAttack)
         terrFrom, tindex = self.getTerritory(terrkeyFrom)
@@ -161,6 +194,8 @@ class Board:
 
         return self.adjacencyIsValid(terrkeyAttack, terrkeyFrom)
 
+    # Pass a key and get the corresponding territory and the index in the dictionary
+    #  The index should correspond to the observation matrix index
     def getTerritory(self, terrkey):
         if terrkey in self.board_dict:
             keys = list(self.board_dict.keys())
@@ -169,6 +204,7 @@ class Board:
             self.msgqueue.addMessage(f'ERROR: Wrong key -> {terrkey}')
             return Territory('???', [0,0]), -1
 
+    # Adds a connection the both territories
     def connections(self, terra, terrb):
         terrA, tindex = self.getTerritory(terra)
         terrB, tindex = self.getTerritory(terrb)
@@ -179,6 +215,7 @@ class Board:
         if not terrB.isConnected(terrA):
             terrB.connectto(terrA)
 
+    # Loads the map into the board
     def loadmap(self):
         maxcols = 0
         if os.path.exists(self.mapfile):
@@ -193,6 +230,8 @@ class Board:
         else:
             self.msgqueue.addMessage(f'ERROR: No map file -> {self.mapfile}')
 
+    # Print the number of troops in each territory 
+    # with the color of the player that owns that territory
     def printTroops(self, stdscr):
         # prints troop number starting at first map 'x'
         # pos points to middle map 'x' for attack paths
@@ -202,6 +241,7 @@ class Board:
             else:
                 stdscr.addstr(terr.pos[0], terr.pos[1]-1, str(terr.troops), terr.color)
 
+    # Returns a list of points from a to b
     def drawPath(self, pos1, pos2):
         normal = self.distance(pos1, pos2)
         # xplus = self.distance(pos1, [pos2[0], pos2[1]+self.maxcols])
@@ -221,5 +261,6 @@ class Board:
             points.append(copy.deepcopy(currp))
         return points[:-1]
     
+    # returns distance
     def distance(self, pos1, pos2):
         return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
