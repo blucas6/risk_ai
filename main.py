@@ -1,6 +1,7 @@
 import curses
 import random
 import time
+from datetime import datetime
 
 from board import Board
 from player import Player
@@ -35,7 +36,7 @@ class Game:
         self.EndGameStats = None        # gets filled at the end of the game
 
         # MODIFIABLE
-        self.printAttackDetails = False         # Extra debug statements
+        self.printExtraDetails = False          # Extra debug statements
         self.turnTime = 0                       # Frame delay between player turns
         self.inputTimeout = 10                  # Frame delay between input
         self.attackPathToken = '#'              # Attack path character
@@ -46,8 +47,11 @@ class Game:
     def start(self, stdscr):
         # get max size info
         self.termrows, self.termcols = stdscr.getmaxyx()
+
         # MESSAGE QUEUE
-        self.messageQueue = MessageQueue(self.debugPanel, self.termrows, self.termcols)
+        self.messageQueue = MessageQueue(
+            self.debugPanel, self.termrows, self.termcols,
+            f"log-{str(datetime.now()).replace(':','')}.txt")
         
         # COLORS
         # can only start color after wrapper is called
@@ -64,7 +68,7 @@ class Game:
         white = curses.color_pair(5)
 
         # BOARD
-        self.board = Board(white, self.messageQueue, self.printAttackDetails)
+        self.board = Board(white, self.messageQueue, self.printExtraDetails)
 
         # PLAYERS
         self.player1 = BaseBot(red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
@@ -85,6 +89,9 @@ class Game:
 
         # GAME RUN
         self.mainloop(stdscr)
+
+        # END APP
+        self.messageQueue.endQueue()
 
     def mainloop(self, stdscr):
         # amount of time between an action
@@ -174,10 +181,9 @@ class Game:
         self.currentAttackPath = []
 
     # Carry out the attack of a player
-    def handleAttack(self, currPlayer):
+    def handleAttack(self, currPlayer: Player):
         # find territory in and territory out
         terrkeyAttack, terrkeyFrom = currPlayer.attack()
-        self.messageQueue.addMessage(f'Attack: player {currPlayer.myname} attacks {terrkeyAttack} from {terrkeyFrom}')
         
         # validate attack, quit if invalid
         if not self.board.attackIsValid(terrkeyAttack, terrkeyFrom, currPlayer.color):
@@ -188,7 +194,7 @@ class Game:
 
         # quit on error
         if attackPath == None:
-            if self.printAttackDetails:
+            if self.printExtraDetails:
                 self.messageQueue.addMessage('ERROR: failed to make attack path!')
             return True, Move().illegal_move
         
@@ -200,7 +206,7 @@ class Game:
         if random.randint(0,3) > 0:
             return True, Move().legal_move
         
-        self.messageQueue.addMessage('Attacker attacks again!')
+        self.messageQueue.addMessage('  Attacker attacks again!')
         return False, Move().legal_move
 
     # Deal with events
@@ -259,12 +265,12 @@ class Game:
             return None
         
         attackPath = self.board.drawPath(terrAttacker.pos, terrDefender.pos)
-        if self.printAttackDetails:
+        if self.printExtraDetails:
             self.messageQueue.addMessage(' Attack path: ', attackPath)
         
         # do rolls
         while True:
-            if self.printAttackDetails:
+            if self.printExtraDetails:
                 self.messageQueue.addMessage(f' Combat throw: troops A {terrAttacker.troops} troops B {terrDefender.troops}')
             if terrAttacker.troops-1 >= 3:
                 diceA = 3
@@ -277,7 +283,7 @@ class Game:
                 playerA.attackRatio[1] += 1
                 playerB.defendRatio[0] += 1
                 playerB.defendRatio[1] += 1
-                self.messageQueue.addMessage('Result: Attacker loses')
+                self.messageQueue.addMessage('   Result: Attacker loses')
                 break
             
             if terrDefender.troops >= 2:
@@ -293,7 +299,7 @@ class Game:
                 playerA.attackRatio[1] += 1
                 playerB.defendRatio[1] += 1
                 playerB.loseATerritory(terrkeyAttack)
-                self.messageQueue.addMessage('Result: Attacker wins')
+                self.messageQueue.addMessage('   Result: Attacker wins')
                 break
 
             # roll for combat
@@ -321,7 +327,7 @@ class Game:
         pArolls = list(reversed(sorted(pArolls)))
         pBrolls = list(reversed(sorted(pBrolls)))
 
-        if self.printAttackDetails:
+        if self.printExtraDetails:
             self.messageQueue.addMessage(f' Rolls A: {pArolls}, Rolls B: {pBrolls}')
         return pArolls, pBrolls
 
