@@ -1,6 +1,7 @@
 import curses
 import random
 import time
+import argparse
 from datetime import datetime
 
 from board import Board
@@ -10,14 +11,14 @@ from tdacbot import TDACBot
 from messagequeue import MessageQueue
 from endgamestats import EndGameStats
 
-class Move():
+class Move:
     legal_move = 'Legal'
     illegal_move = 'Illegal'
 
 # GAME CLASS
 #   Controls the entire game
 class Game:
-    def __init__(self):
+    def __init__(self, args: argparse.Namespace):
         # APP CONTROL
         self.running = True         # app is running
         self.paused = False         # pauses the game
@@ -26,6 +27,9 @@ class Game:
         # GAME INFO
         self.currentPlayer = 0      # current player index
         self.currentPhase = 1       # current phase of a players turn
+        self.currentGame = 1        # If playing multiple games
+        self.maxGames = args.games  # set by command line
+        self.mapSize = args.mapsize # amount of continents
 
         # DISPLAYING INFO
         self.currentAttackPath = []     # stores the attack path for displaying
@@ -37,22 +41,17 @@ class Game:
         self.EndGameStats = None        # gets filled at the end of the game
 
         # MODIFIABLE
-        self.printExtraDetails = False          # Extra debug statements
+        self.printExtraDetails = args.debug     # Extra debug statements
         self.turnTime = 0                       # Frame delay between player turns
-        self.inputTimeout = 10                  # Frame delay between input
+        self.inputTimeout = args.turndelay      # Frame delay between input
         self.attackPathToken = '#'              # Attack path character
         self.TurnIndicatorLocation = [1, 40]    # Where to print the turn indicator
         self.debugPanel = [0, 63]               # Where to print the debug panel
 
     # Entrance to the program
-    def start(self, stdscr):
+    def start(self, stdscr: curses.window):
         # get max size info
         self.termrows, self.termcols = stdscr.getmaxyx()
-
-        # MESSAGE QUEUE
-        self.messageQueue = MessageQueue(
-            self.debugPanel, self.termrows, self.termcols,
-            f"log-{str(datetime.now()).replace(':','')}.txt")
         
         # COLORS
         # can only start color after wrapper is called
@@ -62,21 +61,28 @@ class Game:
         curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)
         curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
         curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_BLACK)
-        red = curses.color_pair(1)
-        yellow = curses.color_pair(2)
-        blue = curses.color_pair(3)
-        green = curses.color_pair(4)
-        white = curses.color_pair(5)
+        self.red = curses.color_pair(1)
+        self.yellow = curses.color_pair(2)
+        self.blue = curses.color_pair(3)
+        self.green = curses.color_pair(4)
+        self.white = curses.color_pair(5)
+
+        # MESSAGE QUEUE
+        self.messageQueue = MessageQueue(
+            self.debugPanel, self.termrows, self.termcols,
+            f"log-{str(datetime.now()).replace(':','')}.txt")
 
         # BOARD
-        self.board = Board(white, self.messageQueue, self.printExtraDetails)
-        self.player1 = TDACBot(red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
-        #self.player1 = BaseBot(red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
-        self.player2 = BaseBot(blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
-        self.player3 = BaseBot(yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)
-        self.player4 = BaseBot(green, list(self.board.board_dict.keys()), '4', self.messageQueue, 3)
-        
-        #player list
+        self.board = Board(self.white, self.messageQueue, self.printExtraDetails, self.mapSize)
+
+        # PLAYERS
+        #self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
+        self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
+        self.player2 = BaseBot(self.blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
+        self.player3 = BaseBot(self.yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)
+        self.player4 = BaseBot(self.green, list(self.board.board_dict.keys()), '4', self.messageQueue, 3)
+
+        # PLAYER LIST (Modify to adjust the amount of players)
         self.player_list = [self.player1, self.player2, self.player3, self.player4]
 
         #curses info
@@ -85,7 +91,28 @@ class Game:
         stdscr.timeout(self.inputTimeout)   # Set a timeout for getch()
 
         # GAME SETUP
-        self.setup()
+        self.newGame()
+
+        # GAME RUN
+        self.mainloop(stdscr)
+
+        # END APP
+        self.messageQueue.endQueue()
+
+    # Sets up a new game
+    def newGame(self):
+        # Clear winner
+        self.winner = ''
+        
+        # PLAYERS
+        #  Clear previous data but not stats
+        for p in self.player_list:
+            p.archiveStats()
+            p.clearPlayer()
+
+        # OBSERVATION MATRIX
+        #  Need player list to be initialized, which needs territories first
+        self.board.createDefaultTerritoryMatrix(len(self.player_list))
 
         #initalize bots
         num_players = len(self.player_list)
@@ -95,18 +122,18 @@ class Game:
         observation_size = num_players * num_territories + num_phases + num_players
         place_action_size = num_territories
         attack_fortify_action_size = num_territories*num_territories + 1
-        self.player1.initalize_agents(observation_size,place_action_size,
+        for p in self.player_list:
+            if p is TDACBot:
+                p.initalize_agents(observation_size,place_action_size,
                                       attack_fortify_action_size,0.2,0.9,
                                       [128],0.2,0.9,[128],[128],num_phases,
-                                      num_players,max_troops)
-        self.player1.set_debug_mode(False)
+                                      num_players)
+                p.set_debug_mode(False)
 
-        # GAME RUN
-        self.mainloop(stdscr)
+        # PLACE TROOPS
+        self.distributeLand()
 
-        # END APP
-        self.messageQueue.endQueue()
-
+    # MAIN
     def mainloop(self, stdscr):
         # amount of time between an action
         frames = self.turnTime
@@ -141,12 +168,26 @@ class Game:
         if not self.winner:
             active = [p for p in self.player_list if p.amountOfOwned > 0]
             if len(active) == 1:
+                # archive all the player stats
+                for p in self.player_list:
+                    p.archiveStats()
                 # load the winner
                 self.winner = active[0].myname
+                active[0].gameswon += 1
                 # load the stats
                 self.EndGameStats = EndGameStats(
-                    self.winner, self.turnCount, self.player_list)
-                self.EndGameStats.printInfo(self.messageQueue)
+                    self.winner, self.turnCount, self.player_list, self.currentGame)
+                # if done playing print all game stats
+                if self.currentGame >= self.maxGames:
+                    if self.maxGames > 1:
+                        self.EndGameStats.printInfo(self.messageQueue, lastgame=True)
+                    else:
+                        self.EndGameStats.printInfo(self.messageQueue)
+                else:
+                    self.EndGameStats.printInfo(self.messageQueue)
+                    # Not finished with all games, launch next one
+                    self.currentGame += 1
+                    self.newGame()
 
     # Get a turn from a player
     def playersPlay(self):
@@ -165,6 +206,7 @@ class Game:
             player = self.currentPlayer
             # Phase 1. Place troops on the board
             if self.currentPhase == 1:
+                self.messageQueue.addMessage(f'-Player {self.player_list[self.currentPlayer].myname} turn-')
                 move = currPlayer.place_troops(self.board)
                 valid_move = Move().legal_move if move else Move().illegal_move
                 if not move:
@@ -195,7 +237,6 @@ class Game:
         self.turnCount += 1
         self.currentPlayer += 1
         self.currentPlayer = self.currentPlayer % len(self.player_list)
-        self.messageQueue.addMessage(f'-Player {self.player_list[self.currentPlayer].myname} turn-')
         self.currentAttackPath = []
 
     # Carry out the attack of a player
@@ -245,22 +286,19 @@ class Game:
     # Game set up
     #  Set up the board matrix
     #  Players get initial random territories
-    def setup(self):
-        # set up observation space
-        self.board.createDefaultTerritoryMatrix(len(self.player_list))
+    def distributeLand(self):
         # get all possible territory keys
         possible_terrs = list(self.board.board_dict.keys())
         player_ind = 0
-        player_list = [self.player1, self.player2, self.player3, self.player4]
         # loop until all territories have troops
         while len(possible_terrs) > 0:
             # pick a random territory key
             terrind = random.randint(0, len(possible_terrs)-1)
             # add troops according to the current player index
-            self.board.addTroops(possible_terrs[terrind], 1, player_list[player_ind])
+            self.board.addTroops(possible_terrs[terrind], 1, self.player_list[player_ind])
             
             # give that player the territory
-            player_list[player_ind].gainATerritory(possible_terrs[terrind])
+            self.player_list[player_ind].gainATerritory(possible_terrs[terrind])
 
             # remove territory from consideration
             del possible_terrs[terrind]
@@ -373,6 +411,8 @@ class Game:
         self.board.printTroops(stdscr)
 
         # print the turn indicator
+        stdscr.addstr(self.TurnIndicatorLocation[0], self.TurnIndicatorLocation[1],
+                      f'=Game {self.currentGame}=')
         for i,p in enumerate(self.player_list):
             status = f'Player {p.myname}'
             if p.myname == str(self.currentPlayer+1):
@@ -382,7 +422,7 @@ class Game:
                     status += ' attack'
                 elif self.currentPhase == 3:
                     status += ' fortify'
-            stdscr.addstr(self.TurnIndicatorLocation[0]+i, self.TurnIndicatorLocation[1],
+            stdscr.addstr(self.TurnIndicatorLocation[0]+i+1, self.TurnIndicatorLocation[1],
                       status, p.color)
 
         # print attack path
@@ -403,5 +443,15 @@ class Game:
 
 
 if __name__ == "__main__":
-    g = Game()
+    parser = argparse.ArgumentParser(description='Risk AI command line args')
+    parser.add_argument('-g', '--games', type=int, default=1,
+                        help='Amount of games in a row (default 1)')
+    parser.add_argument('-m', '--mapsize', type=int, choices=[0,1,2,3,4], default=0,
+                        help='0=NA 1=SA 2=Europe 3=Africa 4=Russia 5=Australia')
+    parser.add_argument('-t', '--turndelay', type=int, default=10,
+                        help='Delay time between getch()')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='Prints additional debug statements')
+    args = parser.parse_args()
+    g = Game(args)
     curses.wrapper(g.start)

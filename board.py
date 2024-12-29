@@ -27,17 +27,24 @@ class Territory:
 # BOARD CLASS
 #  Contains all territories and manipulations of the territories
 class Board:
-    def __init__(self, colorwhite, msgqueue, printExtraDetails):
+    def __init__(self, colorwhite, msgqueue, printExtraDetails, continents):
         # References to game members
         self.msgqueue = msgqueue
         self.printExtraDetails = printExtraDetails
 
         # SETTINGS
-        self.mapfile = 'board.txt'          # Where to load the ascii art
+        self.mapfileNA = 'northamerica.txt'
+        self.mapfileSA = 'southamerica.txt'
+        self.mapfileEuro = 'europe.txt'
+        self.mapfileAfrica = 'africa.txt'
+        self.mapfileRussia = 'russia.txt'
+        self.mapfileAussie = 'australia.txt'
+        # Where to load the entire ascii art
         self.maptxt = []                    # For displaying the map strings
         self.colorwhite = colorwhite        # Color for displaying
-        self.maxrows = 0            # amount of rows in map file
-        self.maxcols = 0            # amount of cols in map file
+        self.maxrows = 0                # amount of rows in map file
+        self.maxcols = 0                # amount of cols in map file
+        self.continents = continents    # amount of continents on the board
 
         # TERRITORY INFO
         self.board_dict = {}        # Contains all territories
@@ -60,12 +67,6 @@ class Board:
         self.board_dict['eus'] = Territory('Eastern United States', [7,20])
         self.board_dict['greenland'] = Territory('Greenland', [1,32])
         self.board_dict['ca'] = Territory('Central America', [9,12])
-        # SOUTH AMERICA
-        self.board_dict['venezuela'] = Territory('Venezuela', [13,18])
-        self.board_dict['peru'] = Territory('Peru', [18,17])
-        self.board_dict['brazil'] = Territory('Brazil', [16,23])
-        self.board_dict['argentina'] = Territory('Argentina', [21,19])
-
         self.connections('alaska', 'nwt')
         self.connections('alaska', 'alberta')
         self.connections('nwt', 'greenland')
@@ -80,12 +81,35 @@ class Board:
         self.connections('wus', 'eus')
         self.connections('wus', 'ca')
         self.connections('eus', 'ca')
-        self.connections('venezuela', 'ca')
-        self.connections('venezuela', 'peru')
-        self.connections('venezuela', 'brazil')
-        self.connections('peru', 'brazil')
-        self.connections('peru', 'argentina')
-        self.connections('brazil', 'argentina')
+
+        # SOUTH AMERICA
+        if self.continents > 0:
+            self.board_dict['venezuela'] = Territory('Venezuela', [13,18])
+            self.board_dict['peru'] = Territory('Peru', [18,17])
+            self.board_dict['brazil'] = Territory('Brazil', [16,23])
+            self.board_dict['argentina'] = Territory('Argentina', [21,19])
+            self.connections('venezuela', 'ca')
+            self.connections('venezuela', 'peru')
+            self.connections('venezuela', 'brazil')
+            self.connections('peru', 'brazil')
+            self.connections('peru', 'argentina')
+            self.connections('brazil', 'argentina')
+        
+        # EUROPE
+        if self.continents > 1:
+            pass
+            
+        # AFRICA
+        if self.continents > 2:
+            pass
+
+        # RUSSIA
+        if self.continents > 3:
+            pass
+
+        # AUSTRALIA
+        if self.continents > 4:
+            pass
 
         # Load displaying map
         self.loadmap()
@@ -220,18 +244,20 @@ class Board:
 
     # Loads the map into the board
     def loadmap(self):
-        maxcols = 0
-        if os.path.exists(self.mapfile):
-            with open(self.mapfile) as mf:
+        maps = [self.mapfileNA, self.mapfileSA, self.mapfileEuro,
+                  self.mapfileAfrica, self.mapfileRussia, self.mapfileAussie]
+        mapfile = maps[self.continents]
+        if os.path.exists(mapfile):
+            with open(mapfile, 'r') as mf:
                 lines = mf.readlines()
-                self.maxrows = len(lines)
-                for line in lines:
-                    if len(lines) > maxcols:
-                        maxcols = len(lines)
+                if len(lines) > self.maxrows:
+                    self.maxrows = len(lines)
+                for num,line in enumerate(lines):
+                    if len(line) > self.maxcols:
+                        self.maxcols = len(line)
                     self.maptxt.append(line.replace('x', ' '))
-            self.maxcols = maxcols
         else:
-            self.msgqueue.addMessage(f'ERROR: No map file -> {self.mapfile}')
+            self.msgqueue.addMessage(f'ERROR: No map file -> {mapfile}')
 
     # Print the number of troops in each territory 
     # with the color of the player that owns that territory
