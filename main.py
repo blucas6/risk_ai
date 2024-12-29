@@ -76,11 +76,16 @@ class Game:
         self.board = Board(self.white, self.messageQueue, self.printExtraDetails, self.mapSize)
 
         # PLAYERS
-        #self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
-        self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
-        self.player2 = BaseBot(self.blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
-        self.player3 = BaseBot(self.yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)
-        self.player4 = BaseBot(self.green, list(self.board.board_dict.keys()), '4', self.messageQueue, 3)
+        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), 
+                               '1', self.messageQueue, 0)
+        #self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()), 
+        # '1', self.messageQueue, 0)
+        self.player2 = BaseBot(self.blue, list(self.board.board_dict.keys()),
+                               '2', self.messageQueue, 1)
+        self.player3 = BaseBot(self.yellow, list(self.board.board_dict.keys()),
+                               '3', self.messageQueue, 2)
+        self.player4 = BaseBot(self.green, list(self.board.board_dict.keys()),
+                               '4', self.messageQueue, 3)
 
         # PLAYER LIST (Modify to adjust the amount of players)
         self.player_list = [self.player1, self.player2, self.player3, self.player4]
