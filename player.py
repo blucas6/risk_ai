@@ -19,6 +19,31 @@ class Player:
         self.index = index              # Index of the player (for board matrix)
         
         # for stats
+        self.gameswon = 0
+        self.attackRatio = [0,0]
+        self.totalAttackRatio = [0,0]
+        self.defendRatio = [0,0]
+        self.totalDefendRatio = [0,0]
+        self.maxterritories = 0
+        self.totalmaxterritories = 0
+        self.placedtroops = 0
+        self.totalplacedtroops = 0
+
+    # Save the stats of a game when moving to a new game
+    def archiveStats(self):
+        self.totalAttackRatio[0] += self.attackRatio[0]
+        self.totalAttackRatio[1] += self.attackRatio[1]
+        self.totalDefendRatio[0] += self.defendRatio[0]
+        self.totalDefendRatio[1] += self.defendRatio[1]
+        if self.maxterritories > self.totalmaxterritories:
+            self.totalmaxterritories = self.maxterritories
+        if self.placedtroops > self.totalplacedtroops:
+            self.totalplacedtroops = self.placedtroops
+    
+    # When restarting a new game, clear the player
+    def clearPlayer(self):
+        self.amountOfOwned = 0
+        self.myOwnedTerritories = []
         self.attackRatio = [0,0]
         self.defendRatio = [0,0]
         self.maxterritories = 0
