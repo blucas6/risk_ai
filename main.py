@@ -130,16 +130,16 @@ class Game:
 
         #initalize bots
         num_players = len(self.player_list)
-        num_territories = 9
+        num_territories = len(self.board.territoryMatrix[0])
         num_phases = 3
         observation_size = num_players * num_territories + num_phases + num_players
         place_action_size = num_territories
         attack_fortify_action_size = num_territories*num_territories + 1
         self.player1.initalize_agents(observation_size,place_action_size,
                                       attack_fortify_action_size,0.2,0.9,
-                                      [128],0.2,0.8,[128],[128],num_phases,
+                                      [128],0.2,0.9,[128],[128],num_phases,
                                       num_players)
-        self.player1.set_debug_mode(True)
+        self.player1.set_debug_mode(False)
 
         # GAME RUN
         self.mainloop(stdscr)

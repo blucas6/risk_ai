@@ -2,6 +2,7 @@ from TD_actor_critic import TDActorCritic
 from player import Player
 from Models.config import *
 import numpy as np
+import math
 class TDACBot(Player):
     def __init__(self, mycolor, terrList, myname, msgqueue,index,path=None):
         super().__init__(mycolor, terrList, myname, msgqueue,index)
@@ -65,9 +66,12 @@ class TDACBot(Player):
         #if the bot chooses to do nothing, it will return (-1,-1)
         if action_index == len(action) - 1:
             return (-1,-1)
-        num_of_territories = (len(action) - 1) // 2
+        num_of_territories = math.isqrt((len(action) - 1))
         #transform the action index back to a tuple (row, column) of the original NxN attack matrix
-        return (action_index // num_of_territories, action_index % num_of_territories)
+        terrIn_index = action_index // num_of_territories
+        terrOut_index = action_index % num_of_territories
+        print(f"Length of Action: {len(action)}, Action Index: {action_index}, Number of Territories: {num_of_territories}, TerrIn Index: {terrIn_index}, TerrOut Index: {terrOut_index}")
+        return terrIn_index,terrOut_index 
     
     def add_experience(self,state,next_state,action_index,reward,phase):
         if phase == 0:
@@ -77,9 +81,12 @@ class TDACBot(Player):
         
     ####OVERRIDE FUNCTIONS####
     def attack(self):
-        return self.sample_attack_fortify_action()
+        terrIn,terrOut = self.sample_attack_fortify_action()
+        return (self.terrList[terrIn],self.terrList[terrOut])
     def fortify(self, board_obj):
         terrIn,terrOut = self.sample_attack_fortify_action()
+        terrIn = self.terrList[terrIn]
+        terrOut = self.terrList[terrOut]
         self.msgqueue.addMessage(f'Fortify {terrIn} from {terrOut}')
         move = board_obj.fortificationIsValid(terrIn, terrOut, self.color)
         if move:
@@ -103,5 +110,5 @@ class TDACBot(Player):
             self.update_agent(10,0.0001,8)
     #return the index to place troops in the territory array.
     def pickATerritoryPlaceTroops(self):
-        return self.sample_place_troop_action()
+        return self.terrList[self.sample_place_troop_action()]
 
