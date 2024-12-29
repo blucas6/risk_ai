@@ -76,12 +76,13 @@ class Board:
             self.territoryMatrix.append(row)
 
     def addTroops(self, terrkey, num, player: Player):
-        self.msgqueue.addMessage(f'Adding {num} troops at {terrkey}')
-        terr, tindex = self.getTerritory(terrkey)
-        terr.troops += num
-        terr.color = player.color
-        self.updateTerritoryMatrix(player.index, tindex, terr.troops)
-    
+        if num != 0:
+            self.msgqueue.addMessage(f'Adding {num} troops at {terrkey}')
+            terr, tindex = self.getTerritory(terrkey)
+            terr.troops += num
+            terr.color = player.color
+            self.updateTerritoryMatrix(player.index, tindex, terr.troops)
+        
     def setTroops(self, terrkey, num, player: Player):
         self.msgqueue.addMessage(f'Setting {num} troops at {terrkey}')
         terr, tindex = self.getTerritory(terrkey)
@@ -90,10 +91,11 @@ class Board:
         self.updateTerritoryMatrix(player.index, tindex, terr.troops)
     
     def removeTroops(self, terrkey, num, player: Player):
-        self.msgqueue.addMessage(f'Removing {num} troops from {terrkey}')
-        terr, tindex = self.getTerritory(terrkey)
-        terr.troops -= num
-        self.updateTerritoryMatrix(player.index, tindex, terr.troops)
+        if num != 0:
+            self.msgqueue.addMessage(f'Removing {num} troops from {terrkey}')
+            terr, tindex = self.getTerritory(terrkey)
+            terr.troops -= num
+            self.updateTerritoryMatrix(player.index, tindex, terr.troops)
 
     def fortificationIsValid(self, terrkeyIn, terrkeyOut, mycolor):
         terrIn, tindex = self.getTerritory(terrkeyIn)

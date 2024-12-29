@@ -292,11 +292,11 @@ class Game:
             if self.printAttackDetails:
                 self.messageQueue.addMessage(f' Combat throw: troops A {terrAttacker.troops} troops B {terrDefender.troops}')
             if terrAttacker.troops-1 >= 3:
-                rollsA = 3
+                diceA = 3
             elif terrAttacker.troops-1 == 2:
-                rollsA = 2
+                diceA = 2
             elif terrAttacker.troops-1 == 1:
-                rollsA = 1
+                diceA = 1
             else:
                 # attacker lost, do nothing
                 playerA.attackRatio[1] += 1
@@ -306,9 +306,9 @@ class Game:
                 break
             
             if terrDefender.troops >= 2:
-                rollsB = 2
+                diceB = 2
             elif terrDefender.troops == 1:
-                rollsB = 1
+                diceB = 1
             else:
                 # defender lost, move attacker troops into territory
                 self.board.setTroops(terrkeyAttack, terrAttacker.troops - 1, playerA)
@@ -322,23 +322,23 @@ class Game:
                 break
 
             # roll for combat
-            troopDiffA, troopDiffB = self.doRolls(rollsA, rollsB)
-            if troopDiffA != 0:
-                self.board.removeTroops(terrkeyFrom, troopDiffA, playerA)
-            if troopDiffB != 0:
-                self.board.removeTroops(terrkeyAttack, troopDiffB, playerB)
+            troopDiffA, troopDiffB = self.computeAttack(diceA, diceB)
+            self.board.removeTroops(terrkeyFrom, troopDiffA, playerA)
+            self.board.removeTroops(terrkeyAttack, troopDiffB, playerB)
 
         return attackPath
-
-    def doRolls(self, rollsA, rollsB):
-        troopDiffA = 0
-        troopDiffB = 0
+    
+    def computeAttack(self, diceA, diceB):
+        rollsA, rollsB = self.getRolls(diceA, diceB)
+        return self.doRolls(rollsA, rollsB)
+    
+    def getRolls(self, diceA, diceB):
         pArolls = []
         pBrolls = []
 
-        for r in range(rollsA):
+        for r in range(diceA):
             pArolls.append(random.randint(1,6))
-        for r in range(rollsB):
+        for r in range(diceB):
             pBrolls.append(random.randint(1,6))
         
         pArolls = list(reversed(sorted(pArolls)))
@@ -346,10 +346,15 @@ class Game:
 
         if self.printAttackDetails:
             self.messageQueue.addMessage(f' Rolls A: {pArolls}, Rolls B: {pBrolls}')
+        return pArolls, pBrolls
 
-        for i,dice in enumerate(pBrolls):
-            if i <= len(pArolls)-1:
-                if dice >= pArolls[i]:
+    def doRolls(self, rollsA, rollsB):
+        troopDiffA = 0
+        troopDiffB = 0
+
+        for i,dice in enumerate(rollsB):
+            if i <= len(rollsA)-1:
+                if dice >= rollsA[i]:
                     troopDiffA += 1
                 else:
                     troopDiffB += 1
