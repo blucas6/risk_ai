@@ -20,6 +20,7 @@ class FCNNLayer(Layer):
             self.decay2 = 0.99
             self.time_step = 1
     def forward(self,X):
+        print(X.shape,self.weights.T.shape)
         X = X.reshape(X.shape[0],-1)
         self.input = X
         self.pre_activation_output = self.input @ self.weights.T + self.bias

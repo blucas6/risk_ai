@@ -2,6 +2,8 @@ import os
 import copy
 import math
 
+from player import Player
+
 class Territory:
     def __init__(self, name, pos):
         self.name = name
@@ -20,10 +22,13 @@ class Territory:
 
 class Board:
     def __init__(self, colorwhite, msgqueue, printAttackDetails):
+        # References to game members
         self.msgqueue = msgqueue
+
         self.mapfile = 'board.txt'
         self.maptxt = []
         self.board_dict = {}
+        self.territoryMatrix = []
         self.colorwhite = colorwhite
         self.maxrows = 0
         self.maxcols = 0
@@ -57,20 +62,42 @@ class Board:
 
         self.loadmap()
 
-    def addTroops(self, terrkey, num, playercolor):
+    def updateTerritoryMatrix(self, playerindex, territoryindex, troops):
+        if (playerindex < len(self.territoryMatrix) and 
+            territoryindex < len(self.territoryMatrix[0])):
+            self.territoryMatrix[playerindex][territoryindex] = troops
+        else:
+            self.msgqueue.addMessage(
+            f'ERROR: Illegal matrix update P:{playerindex} T:{territoryindex} ({len(self.territoryMatrix)-1},{len(self.territoryMatrix[0])-1})')
+
+    def createDefaultTerritoryMatrix(self, player_amount):
+        for p in range(player_amount):
+            row = len(list(self.board_dict.keys())) * [0]
+            self.territoryMatrix.append(row)
+
+    def addTroops(self, terrkey, num, player: Player):
         self.msgqueue.addMessage(f'Adding {num} troops at {terrkey}')
-        terr = self.getTerritory(terrkey)
+        terr, tindex = self.getTerritory(terrkey)
         terr.troops += num
-        terr.color = playercolor
+        terr.color = player.color
+        self.updateTerritoryMatrix(player.index, tindex, terr.troops)
     
-    def removeTroops(self, terrkey, num):
+    def setTroops(self, terrkey, num, player: Player):
+        self.msgqueue.addMessage(f'Setting {num} troops at {terrkey}')
+        terr, tindex = self.getTerritory(terrkey)
+        terr.troops = num
+        terr.color = player.color
+        self.updateTerritoryMatrix(player.index, tindex, terr.troops)
+    
+    def removeTroops(self, terrkey, num, player: Player):
         self.msgqueue.addMessage(f'Removing {num} troops from {terrkey}')
-        terr = self.getTerritory(terrkey)
+        terr, tindex = self.getTerritory(terrkey)
         terr.troops -= num
+        self.updateTerritoryMatrix(player.index, tindex, terr.troops)
 
     def fortificationIsValid(self, terrkeyIn, terrkeyOut, mycolor):
-        terrIn = self.getTerritory(terrkeyIn)
-        terrOut = self.getTerritory(terrkeyOut)
+        terrIn, tindex = self.getTerritory(terrkeyIn)
+        terrOut, tindex = self.getTerritory(terrkeyOut)
 
         if terrIn.name == '???' or terrOut.name == '???':
             self.msgqueue.addMessage('ERROR: Fortify failed, territories are not real')
@@ -85,8 +112,8 @@ class Board:
         return self.adjacencyIsValid(terrkeyIn, terrkeyOut)
 
     def adjacencyIsValid(self, terrkeyA, terrkeyB):
-        terrA = self.getTerritory(terrkeyA)
-        terrB = self.getTerritory(terrkeyB)
+        terrA, tindex = self.getTerritory(terrkeyA)
+        terrB, tindex = self.getTerritory(terrkeyB)
 
         if terrA.name == '???' or terrB.name == '???':
             self.msgqueue.addMessage('ERROR: Attack failed, territories are not real')
@@ -100,8 +127,8 @@ class Board:
         return False
 
     def attackIsValid(self, terrkeyAttack, terrkeyFrom, mycolor):        
-        terrAttack = self.getTerritory(terrkeyAttack)
-        terrFrom = self.getTerritory(terrkeyFrom)
+        terrAttack, tindex = self.getTerritory(terrkeyAttack)
+        terrFrom, tindex = self.getTerritory(terrkeyFrom)
 
         if terrAttack.name == '???' or terrFrom.name == '???':
             self.msgqueue.addMessage('ERROR: Attack failed, territories are not real')
@@ -124,14 +151,15 @@ class Board:
 
     def getTerritory(self, terrkey):
         if terrkey in self.board_dict:
-            return self.board_dict[terrkey]
+            keys = list(self.board_dict.keys())
+            return self.board_dict[terrkey], keys.index(terrkey)
         else:
             self.msgqueue.addMessage(f'ERROR: Wrong key -> {terrkey}')
-            return Territory('???', [0,0])
+            return Territory('???', [0,0]), -1
 
     def connections(self, terra, terrb):
-        terrA = self.getTerritory(terra)
-        terrB = self.getTerritory(terrb)
+        terrA, tindex = self.getTerritory(terra)
+        terrB, tindex = self.getTerritory(terrb)
 
         if not terrA.isConnected(terrB):
             terrA.connectto(terrB)

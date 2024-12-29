@@ -1,7 +1,7 @@
 import random
 
 class Player:
-    def __init__(self, mycolor, terrList, myname, msgqueue):
+    def __init__(self, mycolor, terrList, myname, msgqueue, index):
         self.terrList = terrList        # List of all territories
         self.color = mycolor
         self.amountOfOwned = 0          # Amount of territories owned
@@ -9,6 +9,7 @@ class Player:
         self.myname = myname
         self.maxTriesForActions = 100
         self.msgqueue = msgqueue
+        self.index = index
         # for stats
         self.attackRatio = [0,0]
         self.defendRatio = [0,0]
@@ -30,7 +31,7 @@ class Player:
         for t in range(self.maxTriesForActions):
             terrkey = self.pickATerritoryPlaceTroops()
             if terrkey in self.myOwnedTerritories:
-                board_obj.addTroops(terrkey, available, self.color)
+                board_obj.addTroops(terrkey, available, self)
                 # stats
                 self.placedtroops += available
                 return True
@@ -45,14 +46,16 @@ class Player:
         self.msgqueue.addMessage(f'Fortify {terrIn} from {terrOut}')
         move = board_obj.fortificationIsValid(terrIn, terrOut, self.color)
         if move:
-            troops = board_obj.getTerritory(terrOut).troops - 1
+            theTerr, tindex = board_obj.getTerritory(terrOut)
+            troops = theTerr.troops - 1
             if troops > 0:
-                board_obj.addTroops(terrIn, troops, self.color)
-                board_obj.removeTroops(terrOut, troops)
+                board_obj.addTroops(terrIn, troops, self)
+                board_obj.removeTroops(terrOut, troops, self)
         return move
     def InitialObservation(self,board_obj,phase,player):
         pass
-    def UpdateObservation(self,board_obj,phase,player,move_legality):
+    
+    def UpdateObservation(self,board_obj,phase,player,move_legality,turn_count):
         pass
 
     def pickATerritory(self):

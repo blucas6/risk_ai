@@ -30,7 +30,7 @@ class TDActorCritic:
         self.debug_mode and debug_print(f"Observation: {self.current_observation.shape}")
     """set_action: this method uses the actor to return an action based on the current observation."""
     def set_action(self):
-        action = self.actor.predict(self.current_observation)
+        action = self.actor.predict(self.current_observation).reshape(-1)
         self.debug_mode and debug_print(f"Action: {action.shape}")
         return action
     """sample_action_from_distribution: takes an action probability distribution and samples an action"""
@@ -42,8 +42,9 @@ class TDActorCritic:
         return selected_action
     """add_experience: This method takes as input experience that the agent has accumulated and adds its data."""
     def add_experience(self,state,next_state,action_index,reward):
+        self.debug_mode and print(f"New Experience Data--> State: {state.shape}, Next State: {next_state.shape}, Action Index: {action_index}, Reward: {reward}")
         self.reward.append(reward)
-        new_data = np.concatenate([state,next_state,np.array(action_index),np.array(reward)], axis=1)
+        new_data = np.concatenate([state.reshape(-1),next_state.reshape(-1),np.array([action_index]),np.array([reward])])
         self.data = np.vstack((self.data,new_data)) if self.data is not None else new_data.reshape(1,-1)
         self.debug_mode and debug_print (f"New Data: {new_data.shape}, All Data: {self.data.shape}")
     """update_actor_and_critic: This method uses the experience and transforms it into data that can be used to train the 
@@ -58,13 +59,16 @@ class TDActorCritic:
         observation_size = self.actor.layers[0].input_size
         state = self.data[:,:observation_size]
         next_state = self.data[:,observation_size:-2]
-        action_index = self.data[:,-2]
-        reward = self.data[:,-1]
+        action_index = self.data[:,-2].astype(int)
+        reward = self.data[:,-1].reshape(-1,1)
+        self.debug_mode and print(f"Data Extraction--> State: {state.shape}, Next State: {next_state.shape}, Action Index {action_index}, Reward: {reward.shape}")
         #calculating data to train networks
         value_state = self.critic.predict(state)
         value_next_state = self.critic.predict(next_state)
-        td_error = value_next_state * self.discount + reward - value_state
+        self.debug_mode and print(f"Value State: {value_state.shape}, Value Next State: {value_next_state.shape}")
+        td_error = (value_next_state * self.discount + reward - value_state).reshape(-1)
         improved_action_distribution = self.actor.predict(state)
+        self.debug_mode and print(f"Action Distribution Shape: {improved_action_distribution.shape} Action Index: {action_index}, TD Error: {td_error.shape}")
         improved_action_distribution[np.arange(improved_action_distribution.shape[0]),action_index] += td_error
         improved_action_distribution = np.clip(improved_action_distribution,1e-8,1 - 1e-8)
         improved_action_distribution /= np.sum(improved_action_distribution,axis=1,keepdims=True)

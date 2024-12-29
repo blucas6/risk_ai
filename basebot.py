@@ -2,8 +2,8 @@ from player import Player
 import random
 
 class BaseBot(Player):
-    def __init__(self, mycolor, terrList, myname, msgqueue):
-        super().__init__(mycolor, terrList, myname, msgqueue)
+    def __init__(self, mycolor, terrList, myname, msgqueue, index):
+        super().__init__(mycolor, terrList, myname, msgqueue, index)
 
     def pickATerritoryPlaceTroops(self):
         return self.myOwnedTerritories[

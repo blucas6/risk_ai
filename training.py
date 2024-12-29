@@ -1,5 +1,5 @@
 from TD_actor_critic import TDActorCritic
-from risk_ai.TDACBot import TDACBot
+from tdacbot import TDACBot
 #hyperparamters
 num_players = 4
 num_territories = 10
