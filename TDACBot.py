@@ -5,16 +5,26 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 class TDACBot(Player):
-    def __init__(self, mycolor, terrList, myname, msgqueue,index,path=None):
+    def __init__(self, mycolor, terrList, myname, msgqueue,index,num_players,num_territories,num_phases,max_troops,path=None):
         super().__init__(mycolor, terrList, myname, msgqueue,index)
         if path is not None:
             self.place_troops_agent = TDActorCritic.load_model(path+"place_troops")
             self.attack_fortify_agent = TDActorCritic.load_model(path+"attack_fortify")
             self.attack_fortify_agent.critic = self.place_troops_agent.critic
+        else:
+            observation_size = num_players * num_territories + num_phases + num_players
+            place_action_size = num_territories
+            attack_fortify_action_size = num_territories*num_territories + 1
+            self.initalize_agents(observation_size,place_action_size,
+                                      attack_fortify_action_size,0.2,0.9,
+                                      [128],0.2,0.9,[128],[128],num_phases,
+                                      num_players,max_troops)
+            self.set_debug_mode(True)
     def initalize_agents(self,observation_size,place_action_size,attack_fortify_action_size,
                          place_troop_agent_exploration_rate,place_troop_agent_discount,
                          place_troop_agent_hidden_sizes,attack_fortify_agent_exploration_rate,attack_fortify_agent_discount,
                          attack_fortify_agent_hidden_sizes,shared_critic_hidden_sizes,num_phases,num_players,max_troops):
+        
         place_troop_agent = TDActorCritic(place_troop_agent_exploration_rate,place_troop_agent_discount)
         place_troop_agent.initalize_actor(observation_size,place_action_size,place_troop_agent_hidden_sizes)
         place_troop_agent.initialize_critic(observation_size,shared_critic_hidden_sizes)
@@ -49,6 +59,7 @@ class TDACBot(Player):
         phase_one_hot = np.eye(self.num_phases)[phase]
         player_one_hot = np.eye(self.num_players)[player]
         observation = np.concatenate([board_flat,phase_one_hot,player_one_hot]).reshape(1,-1)
+        print(f"Observation: {board_flat.shape}, {phase_one_hot.shape}, {player_one_hot.shape}, {observation.shape}")
         return observation
     def sample_place_troop_action(self):
         self.place_troops_agent.get_observation(self.initial_observation)
@@ -131,8 +142,8 @@ class TDACBot(Player):
             reward = 0 if move_legality else -1
         self.msgqueue.addMessage(f"Phase: {phase}, Received Reward: {reward}")
         self.add_experience(self.initial_observation,self.end_observation,self.action_index,reward,phase)
-        if (turn_count + 1) % 100 == 0:
-            self.update_agent(10,0.0001,8)
+        if (turn_count + 1) % 1000 == 0:
+            self.update_agent(10,0.0001,32)
             self.graph_metrics()
 
     #return the index to place troops in the territory array.

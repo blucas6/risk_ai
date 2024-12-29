@@ -114,6 +114,9 @@ class Board:
         # Load displaying map
         self.loadmap()
 
+        #Total number of territories
+        self.total_territories = len(list(self.board_dict.keys()))
+
     # Any update to the territories must update the observation matrix
     def updateTerritoryMatrix(self, playerindex, territoryindex, troops):
         if (playerindex < len(self.territoryMatrix) and 
@@ -125,6 +128,7 @@ class Board:
 
     # Set up the space for the observation matrix
     def createDefaultTerritoryMatrix(self, player_amount):
+        self.territoryMatrix = []
         for p in range(player_amount):
             row = len(list(self.board_dict.keys())) * [0]
             self.territoryMatrix.append(row)
