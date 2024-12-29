@@ -22,16 +22,20 @@ class Player:
         self.maxterritories = 0
         self.placedtroops = 0
 
+    # Player gains a territory
     def gainATerritory(self, terrkey):
         self.myOwnedTerritories.append(terrkey)
         self.amountOfOwned += 1
         if self.maxterritories < self.amountOfOwned:
             self.maxterritories = self.amountOfOwned
 
+    # Player loses a territory
     def loseATerritory(self, terrkey):
         self.myOwnedTerritories.remove(terrkey)
         self.amountOfOwned -= 1
 
+    # GAME ACTION Phase 1
+    #  Asks the player where to place troops
     def place_troops(self, board_obj):
         available = self.amountOfOwned
         for t in range(self.maxTriesForActions):
@@ -43,10 +47,13 @@ class Player:
                 return True
         return False
     
-    #returns a tuple
+    # GAME ACTION Phase 2
+    #  Asks the player where to attack from and to
     def attack(self):
         return self.pickATerritoryAttackTo(), self.pickATerritoryAttackFrom()
 
+    # GAME ACTION Phase 3
+    #  Asks the player where to fortify from and to
     def fortify(self, board_obj):
         terrIn = self.pickATerritoryFortifyTo()
         terrOut = self.pickATerritoryFortifyFrom()
