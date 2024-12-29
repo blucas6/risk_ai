@@ -1,6 +1,10 @@
 from player import Player
 import random
 
+class MediumBot(Player):
+    def __init__(self, mycolor, terrList, myname, msgqueue, index):
+        super().__init__(mycolor, terrList, myname, msgqueue, index)
+
 class BaseBot(Player):
     def __init__(self, mycolor, terrList, myname, msgqueue, index):
         super().__init__(mycolor, terrList, myname, msgqueue, index)
