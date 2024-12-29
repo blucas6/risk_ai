@@ -34,17 +34,21 @@ class Board:
         self.maxcols = 0
         self.printAttackDetails = printAttackDetails
         # NORTH AMERICA
-        self.board_dict['alaska'] = Territory("Alaska", [1,2])
-        self.board_dict['nwt'] = Territory("North West Territory", [1,14])
-        self.board_dict['alberta'] = Territory("Alberta", [4,9])
-        self.board_dict['ontario'] = Territory("Ontario", [4,17])
-        self.board_dict['quebec'] = Territory("Quebec", [4,24])
-        self.board_dict['wus'] = Territory("Western United States", [7,11])
-        self.board_dict['eus'] = Territory("Eastern United States", [7,20])
-        self.board_dict['greenland'] = Territory("Greenland", [1,32])
-        self.board_dict['ca'] = Territory("Central America", [9,12])
+        self.board_dict['alaska'] = Territory('Alaska', [1,3])
+        self.board_dict['nwt'] = Territory('North West Territory', [1,14])
+        self.board_dict['alberta'] = Territory('Alberta', [4,9])
+        self.board_dict['ontario'] = Territory('Ontario', [4,17])
+        self.board_dict['quebec'] = Territory('Quebec', [4,24])
+        self.board_dict['wus'] = Territory('Western United States', [7,11])
+        self.board_dict['eus'] = Territory('Eastern United States', [7,20])
+        self.board_dict['greenland'] = Territory('Greenland', [1,32])
+        self.board_dict['ca'] = Territory('Central America', [9,12])
+        # SOUTH AMERICA
+        self.board_dict['venezuela'] = Territory('Venezuela', [13,18])
+        self.board_dict['peru'] = Territory('Peru', [18,17])
+        self.board_dict['brazil'] = Territory('Brazil', [16,23])
+        self.board_dict['argentina'] = Territory('Argentina', [21,19])
 
-        self.connections('alaska', 'greenland')
         self.connections('alaska', 'nwt')
         self.connections('alaska', 'alberta')
         self.connections('nwt', 'greenland')
@@ -59,6 +63,12 @@ class Board:
         self.connections('wus', 'eus')
         self.connections('wus', 'ca')
         self.connections('eus', 'ca')
+        self.connections('venezuela', 'ca')
+        self.connections('venezuela', 'peru')
+        self.connections('venezuela', 'brazil')
+        self.connections('peru', 'brazil')
+        self.connections('peru', 'argentina')
+        self.connections('brazil', 'argentina')
 
         self.loadmap()
 
@@ -76,12 +86,13 @@ class Board:
             self.territoryMatrix.append(row)
 
     def addTroops(self, terrkey, num, player: Player):
-        self.msgqueue.addMessage(f'Adding {num} troops at {terrkey}')
-        terr, tindex = self.getTerritory(terrkey)
-        terr.troops += num
-        terr.color = player.color
-        self.updateTerritoryMatrix(player.index, tindex, terr.troops)
-    
+        if num != 0:
+            self.msgqueue.addMessage(f'Adding {num} troops at {terrkey}')
+            terr, tindex = self.getTerritory(terrkey)
+            terr.troops += num
+            terr.color = player.color
+            self.updateTerritoryMatrix(player.index, tindex, terr.troops)
+        
     def setTroops(self, terrkey, num, player: Player):
         self.msgqueue.addMessage(f'Setting {num} troops at {terrkey}')
         terr, tindex = self.getTerritory(terrkey)
@@ -90,10 +101,11 @@ class Board:
         self.updateTerritoryMatrix(player.index, tindex, terr.troops)
     
     def removeTroops(self, terrkey, num, player: Player):
-        self.msgqueue.addMessage(f'Removing {num} troops from {terrkey}')
-        terr, tindex = self.getTerritory(terrkey)
-        terr.troops -= num
-        self.updateTerritoryMatrix(player.index, tindex, terr.troops)
+        if num != 0:
+            self.msgqueue.addMessage(f'Removing {num} troops from {terrkey}')
+            terr, tindex = self.getTerritory(terrkey)
+            terr.troops -= num
+            self.updateTerritoryMatrix(player.index, tindex, terr.troops)
 
     def fortificationIsValid(self, terrkeyIn, terrkeyOut, mycolor):
         terrIn, tindex = self.getTerritory(terrkeyIn)
@@ -182,11 +194,13 @@ class Board:
             self.msgqueue.addMessage(f'ERROR: No map file -> {self.mapfile}')
 
     def printTroops(self, stdscr):
+        # prints troop number starting at first map 'x'
+        # pos points to middle map 'x' for attack paths
         for name, terr in self.board_dict.items():
             if terr.color == None:
-                stdscr.addstr(terr.pos[0], terr.pos[1], '0', self.colorwhite)
+                stdscr.addstr(terr.pos[0], terr.pos[1]-1, '0', self.colorwhite)
             else:
-                stdscr.addstr(terr.pos[0], terr.pos[1], str(terr.troops), terr.color)
+                stdscr.addstr(terr.pos[0], terr.pos[1]-1, str(terr.troops), terr.color)
 
     def drawPath(self, pos1, pos2):
         normal = self.distance(pos1, pos2)
