@@ -76,8 +76,8 @@ class Game:
         self.board = Board(self.white, self.messageQueue, self.printExtraDetails, self.mapSize)
 
         # PLAYERS
-        #self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
-        self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
+        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0,4,self.board.total_territories,3,100)
+        #self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
         self.player2 = BaseBot(self.blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
         self.player3 = BaseBot(self.yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)
         self.player4 = BaseBot(self.green, list(self.board.board_dict.keys()), '4', self.messageQueue, 3)
@@ -113,23 +113,6 @@ class Game:
         # OBSERVATION MATRIX
         #  Need player list to be initialized, which needs territories first
         self.board.createDefaultTerritoryMatrix(len(self.player_list))
-
-        #initalize bots
-        num_players = len(self.player_list)
-        num_territories = len(self.board.territoryMatrix[0])
-        num_phases = 3
-        max_troops = 100
-        observation_size = num_players * num_territories + num_phases + num_players
-        place_action_size = num_territories
-        attack_fortify_action_size = num_territories*num_territories + 1
-        for p in self.player_list:
-            if p is TDACBot:
-                p.initalize_agents(observation_size,place_action_size,
-                                      attack_fortify_action_size,0.2,0.9,
-                                      [128],0.2,0.9,[128],[128],num_phases,
-                                      num_players)
-                p.set_debug_mode(False)
-
         # PLACE TROOPS
         self.distributeLand()
 
