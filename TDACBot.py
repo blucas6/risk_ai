@@ -70,7 +70,7 @@ class TDACBot(Player):
         #transform the action index back to a tuple (row, column) of the original NxN attack matrix
         terrIn_index = action_index // num_of_territories
         terrOut_index = action_index % num_of_territories
-        print(f"Length of Action: {len(action)}, Action Index: {action_index}, Number of Territories: {num_of_territories}, TerrIn Index: {terrIn_index}, TerrOut Index: {terrOut_index}")
+        #print(f"Length of Action: {len(action)}, Action Index: {action_index}, Number of Territories: {num_of_territories}, TerrIn Index: {terrIn_index}, TerrOut Index: {terrOut_index}")
         return terrIn_index,terrOut_index 
     
     def add_experience(self,state,next_state,action_index,reward,phase):
@@ -90,10 +90,11 @@ class TDACBot(Player):
         self.msgqueue.addMessage(f'Fortify {terrIn} from {terrOut}')
         move = board_obj.fortificationIsValid(terrIn, terrOut, self.color)
         if move:
-            troops = board_obj.getTerritory(terrOut).troops - 1
+            theTerr, tindex = board_obj.getTerritory(terrOut)
+            troops = theTerr.troops - 1
             if troops > 0:
-                board_obj.addTroops(terrIn, troops, self.color)
-                board_obj.removeTroops(terrOut, troops)
+                board_obj.addTroops(terrIn, troops, self)
+                board_obj.removeTroops(terrOut, troops, self)
         return move
     def InitialObservation(self,territory_matrix,phase,player):
         phase -= 1
@@ -106,7 +107,7 @@ class TDACBot(Player):
         else:
             reward = 0 if move_legality else -1
         self.add_experience(self.initial_observation,self.end_observation,self.action_index,reward,phase)
-        if turn_count % 100:
+        if (turn_count + 1) % 100 == 0:
             self.update_agent(10,0.0001,8)
     #return the index to place troops in the territory array.
     def pickATerritoryPlaceTroops(self):

@@ -1,10 +1,12 @@
 import random
 
+from messagequeue import MessageQueue
+
 # PLAYER CLASS
 #  Default player class
 #  Picks random territories for every action
 class Player:
-    def __init__(self, mycolor, terrList, myname, msgqueue, index):
+    def __init__(self, mycolor, terrList, myname, msgqueue: MessageQueue, index):
         # Reference to game members
         self.msgqueue = msgqueue
 
@@ -44,20 +46,24 @@ class Player:
                 board_obj.addTroops(terrkey, available, self)
                 # stats
                 self.placedtroops += available
+                self.msgqueue.addMessage(f'  Placed {available} troops at {terrkey}')
                 return True
         return False
     
     # GAME ACTION Phase 2
     #  Asks the player where to attack from and to
     def attack(self):
-        return self.pickATerritoryAttackTo(), self.pickATerritoryAttackFrom()
+        terrkeyAttack = self.pickATerritoryAttackTo()
+        terrkeyFrom = self.pickATerritoryAttackFrom()
+        self.msgqueue.addMessage(f'  Attacks {terrkeyAttack} from {terrkeyFrom}')
+        return terrkeyAttack, terrkeyFrom
 
     # GAME ACTION Phase 3
     #  Asks the player where to fortify from and to
     def fortify(self, board_obj):
         terrIn = self.pickATerritoryFortifyTo()
         terrOut = self.pickATerritoryFortifyFrom()
-        self.msgqueue.addMessage(f'Fortify {terrIn} from {terrOut}')
+        self.msgqueue.addMessage(f'  Fortify {terrIn} from {terrOut}')
         move = board_obj.fortificationIsValid(terrIn, terrOut, self.color)
         if move:
             theTerr, tindex = board_obj.getTerritory(terrOut)

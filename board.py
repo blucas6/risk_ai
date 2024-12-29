@@ -27,10 +27,10 @@ class Territory:
 # BOARD CLASS
 #  Contains all territories and manipulations of the territories
 class Board:
-    def __init__(self, colorwhite, msgqueue, printAttackDetails):
+    def __init__(self, colorwhite, msgqueue, printExtraDetails):
         # References to game members
         self.msgqueue = msgqueue
-        self.printAttackDetails = printAttackDetails
+        self.printExtraDetails = printExtraDetails
 
         # SETTINGS
         self.mapfile = 'board.txt'          # Where to load the ascii art
@@ -108,7 +108,8 @@ class Board:
     # Adding an amount of troops to a territory
     def addTroops(self, terrkey, num, player: Player):
         if num != 0:
-            self.msgqueue.addMessage(f'Adding {num} troops at {terrkey}')
+            if self.printExtraDetails:
+                self.msgqueue.addMessage(f'Adding {num} troops at {terrkey}')
             terr, tindex = self.getTerritory(terrkey)
             terr.troops += num
             terr.color = player.color
@@ -116,7 +117,8 @@ class Board:
         
     # Setting the amount of troops on a territory to a fixed number
     def setTroops(self, terrkey, num, player: Player):
-        self.msgqueue.addMessage(f'Setting {num} troops at {terrkey}')
+        if self.printExtraDetails:
+            self.msgqueue.addMessage(f'Setting {num} troops at {terrkey}')
         terr, tindex = self.getTerritory(terrkey)
         terr.troops = num
         terr.color = player.color
@@ -125,7 +127,8 @@ class Board:
     # Removing an amount of troops from a territory
     def removeTroops(self, terrkey, num, player: Player):
         if num != 0:
-            self.msgqueue.addMessage(f'Removing {num} troops from {terrkey}')
+            if self.printExtraDetails:
+                self.msgqueue.addMessage(f'Removing {num} troops from {terrkey}')
             terr, tindex = self.getTerritory(terrkey)
             terr.troops -= num
             self.updateTerritoryMatrix(player.index, tindex, terr.troops)
@@ -144,7 +147,7 @@ class Board:
         
         # make sure player owns both territories
         if terrIn.color != mycolor or terrOut.color != mycolor:
-            if self.printAttackDetails:
+            if self.printExtraDetails:
                 self.msgqueue.addMessage(' Invalid fortify: owner relationship invalid')
             return False
 
@@ -162,7 +165,7 @@ class Board:
         if terrB in terrA.adjecency_list:
             return True
         
-        if self.printAttackDetails:
+        if self.printExtraDetails:
             self.msgqueue.addMessage(' Invalid move, territories are not adjecent')
         return False
 
@@ -182,13 +185,13 @@ class Board:
         # invalid if the player does not own the owned territory
         # or if the attacking territory is owned by that player
         if terrFrom.color != mycolor or terrAttack.color == mycolor:
-            if self.printAttackDetails:
+            if self.printExtraDetails:
                 self.msgqueue.addMessage(' Invalid attack, owner relationship invalid')
             return False
         
         # must have enough troops
         if terrFrom.troops <= 1:
-            if self.printAttackDetails:
+            if self.printExtraDetails:
                 self.msgqueue.addMessage(' Invalid attack, player does not have enough troops')
             return False
 
