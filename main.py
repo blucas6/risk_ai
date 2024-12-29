@@ -69,7 +69,7 @@ class Game:
         white = curses.color_pair(5)
 
         # BOARD
-        self.board = Board(white, self.messageQueue, self.printAttackDetails)
+        self.board = Board(white, self.messageQueue, self.printExtraDetails)
         self.player1 = TDACBot(red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
         #self.player1 = BaseBot(red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
         self.player2 = BaseBot(blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
@@ -91,13 +91,14 @@ class Game:
         num_players = len(self.player_list)
         num_territories = len(self.board.territoryMatrix[0])
         num_phases = 3
+        max_troops = 100
         observation_size = num_players * num_territories + num_phases + num_players
         place_action_size = num_territories
         attack_fortify_action_size = num_territories*num_territories + 1
         self.player1.initalize_agents(observation_size,place_action_size,
                                       attack_fortify_action_size,0.2,0.9,
                                       [128],0.2,0.9,[128],[128],num_phases,
-                                      num_players)
+                                      num_players,max_troops)
         self.player1.set_debug_mode(False)
 
         # GAME RUN

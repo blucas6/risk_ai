@@ -77,7 +77,6 @@ class Player:
     
     def UpdateObservation(self,board_obj,phase,player,move_legality,turn_count):
         pass
-
     def pickATerritory(self):
         return self.terrList[random.randint(0,len(self.terrList)-1)]
     

@@ -3,6 +3,7 @@ from player import Player
 from Models.config import *
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 class TDACBot(Player):
     def __init__(self, mycolor, terrList, myname, msgqueue,index,path=None):
         super().__init__(mycolor, terrList, myname, msgqueue,index)
@@ -13,7 +14,7 @@ class TDACBot(Player):
     def initalize_agents(self,observation_size,place_action_size,attack_fortify_action_size,
                          place_troop_agent_exploration_rate,place_troop_agent_discount,
                          place_troop_agent_hidden_sizes,attack_fortify_agent_exploration_rate,attack_fortify_agent_discount,
-                         attack_fortify_agent_hidden_sizes,shared_critic_hidden_sizes,num_phases,num_players):
+                         attack_fortify_agent_hidden_sizes,shared_critic_hidden_sizes,num_phases,num_players,max_troops):
         place_troop_agent = TDActorCritic(place_troop_agent_exploration_rate,place_troop_agent_discount)
         place_troop_agent.initalize_actor(observation_size,place_action_size,place_troop_agent_hidden_sizes)
         place_troop_agent.initialize_critic(observation_size,shared_critic_hidden_sizes)
@@ -24,6 +25,7 @@ class TDACBot(Player):
         self.attack_fortify_agent = attack_fortify_agent
         self.num_phases = num_phases
         self.num_players = num_players
+        self.max_troops = max_troops
         self.initial_observation = None
         self.end_observation = None
         self.action_index = None
@@ -41,9 +43,9 @@ class TDACBot(Player):
     def update_agent(self,epochs,learning_rate,batch_size):
         self.place_troops_agent.update_actor_and_critic(epochs,learning_rate,batch_size)
         self.attack_fortify_agent.update_actor_and_critic(epochs,learning_rate,batch_size)
-    def set_observation(self,board,phase,player):
+    def set_observation(self,board,phase,player,max_troops):
         #returns reshaped observation space
-        board_flat = np.array(board).reshape(-1)
+        board_flat = np.array(board).reshape(-1) / max_troops
         phase_one_hot = np.eye(self.num_phases)[phase]
         player_one_hot = np.eye(self.num_players)[player]
         observation = np.concatenate([board_flat,phase_one_hot,player_one_hot]).reshape(1,-1)
@@ -78,6 +80,27 @@ class TDACBot(Player):
             self.place_troops_agent.add_experience(state,next_state,action_index,reward)
         else:
             self.attack_fortify_agent.add_experience(state,next_state,action_index,reward)
+    def return_metrics(self):
+        pta_actor_loss = self.place_troops_agent.actor_loss
+        pta_critic_loss = self.place_troops_agent.critic_loss
+        pta_reward = self.place_troops_agent.reward
+        afa_actor_loss = self.attack_fortify_agent.actor_loss
+        afa_critic_loss = self.attack_fortify_agent.critic_loss
+        afa_reward = self.attack_fortify_agent.reward
+        return pta_actor_loss,pta_critic_loss,pta_reward,afa_actor_loss,afa_critic_loss,afa_reward
+    def graph_metrics(self):
+        pta_al,pta_cl,pta_r,afa_al,afa_cl,afa_r = self.return_metrics()
+        data = [pta_al,pta_cl,pta_r,afa_al,afa_cl,afa_r]
+        titles = ['Place Troops Actor Loss','Place Troops Critic Loss',
+                   'Place Troops Reward', 'Attack Fortify Actor Loss',
+                   'Attack Fortify Critic Loss', 'Attack Fortify Reward']
+        fig,axes = plt.subplots(2,3,figsize=(12,16))
+        axes = axes.flatten()
+        for i, ax in enumerate(axes):
+            ax.plot(data[i],color='blue')
+            ax.set_title(titles[i])
+        plt.tight_layout()
+        plt.show()
         
     ####OVERRIDE FUNCTIONS####
     def attack(self):
@@ -98,17 +121,20 @@ class TDACBot(Player):
         return move
     def InitialObservation(self,territory_matrix,phase,player):
         phase -= 1
-        self.initial_observation = self.set_observation(territory_matrix,phase,player)
+        self.initial_observation = self.set_observation(territory_matrix,phase,player,self.max_troops)
     def UpdateObservation(self,territory_matrix,phase,player,move_legality,turn_count):
         phase -= 1
-        self.end_observation = self.set_observation(territory_matrix,phase,player)
+        self.end_observation = self.set_observation(territory_matrix,phase,player,self.max_troops)
         if phase == 0:
-            reward = np.sum(self.initial_observation - self.end_observation)
+            reward = np.sum(self.end_observation - self.initial_observation)
         else:
             reward = 0 if move_legality else -1
+        self.msgqueue.addMessage(f"Phase: {phase}, Received Reward: {reward}")
         self.add_experience(self.initial_observation,self.end_observation,self.action_index,reward,phase)
         if (turn_count + 1) % 100 == 0:
             self.update_agent(10,0.0001,8)
+            self.graph_metrics()
+
     #return the index to place troops in the territory array.
     def pickATerritoryPlaceTroops(self):
         return self.terrList[self.sample_place_troop_action()]
