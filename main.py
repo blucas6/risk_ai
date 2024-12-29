@@ -13,20 +13,27 @@ class MessageQueue:
         self.maxMsgs = termrows - printPos[0]
         self.maxcols = termcols - printPos[1]
 
-    def addMessage(self, msg, mylist=[]):
+    def listToString(self, mylist):
+        msg = ' ['
+        for item in mylist:
+            msg += str(item)+' '
+        msg += ']'
+        return msg
+
+    def addMessage(self, msg, mylist=[], mylist2d=[]):
         if mylist:
-            msg += ' ['
-            for item in mylist:
-                msg += str(item)+' '
-            msg += ']'
-        if len(msg) > self.maxcols:
+            msg += self.listToString(mylist)
+        if mylist2d:
+            for i in range(mylist2d):
+                msg += self.listToString()
+        while len(msg) > self.maxcols:
             self.msgs.append(msg[:self.maxcols-1])
-            self.msgs.append(msg[self.maxcols-1:])
-        else:
-            self.msgs.append(msg)
+            msg = msg[self.maxcols-1:]
+        self.msgs.append(msg)
         while len(self.msgs) > self.maxMsgs:
             del self.msgs[0]
 
+# ENDGAMESTATS CLASS
 class EndGameStats:
     def __init__(self, winner, totalturns, player_list):
         self.winner = winner
@@ -52,29 +59,34 @@ class EndGameStats:
             msgqueue.addMessage(f'  Defend Winrate: {ratio}% [{p.defendRatio[0]}/{p.defendRatio[1]}]')
             msgqueue.addMessage(f'  Max Territories: {p.maxterritories}')
 
+# GAME CLASS
+#   Controls the entire game
 class Game:
     def __init__(self):
-        self.turnCount = 0
-        self.running = True
-        self.paused = False
-        self.currentPlayer = 0
-        self.currentPhase = 1
+        # APP CONTROL
+        self.running = True         # app is running
+        self.paused = False         # pauses the game
+        self.stepMode = False       # activates the step mode of the app
+        
+        # GAME INFO
+        self.currentPlayer = 0      # current player index
+        self.currentPhase = 1       # current phase of a players turn
 
-        self.currentAttackPath = []
-        self.currentAttackColor = None
-        self.stepMode = False
+        # DISPLAYING INFO
+        self.currentAttackPath = []     # stores the attack path for displaying
+        self.currentAttackColor = None  # stores the color of the player that attacks
 
-        self.winner = ''
-        self.EndGameStats = None
+        # STATS
+        self.turnCount = 0              # keeps track of the turn count
+        self.winner = ''                # fill with a player to end the game
+        self.EndGameStats = None        # gets filled at the end of the game
 
         # MODIFIABLE
-        self.printAttackDetails = False
-        self.turnTime = 0
-        self.attackPathToken = '#'
-        self.TurnIndicatorLocation = [1, 40]
-        self.endGameStatsLocation = [7,40]
-        self.debugPanel = [0, 63]
-
+        self.printAttackDetails = False         # Extra debug statements
+        self.turnTime = 0                       # Frame delay between player turns
+        self.attackPathToken = '#'              # Attack path character
+        self.TurnIndicatorLocation = [1, 40]    # Where to print the turn indicator
+        self.debugPanel = [0, 63]               # Where to print the debug panel
 
     def start(self, stdscr):
         # can only start color after wrapper is called
@@ -94,10 +106,10 @@ class Game:
 
         # pass color to objects
         self.board = Board(white, self.messageQueue, self.printAttackDetails)
-        self.player1 = BaseBot(red, list(self.board.board_dict.keys()), '1', self.messageQueue)
-        self.player2 = BaseBot(blue, list(self.board.board_dict.keys()), '2', self.messageQueue)
-        self.player3 = BaseBot(yellow, list(self.board.board_dict.keys()), '3', self.messageQueue)
-        self.player4 = BaseBot(green, list(self.board.board_dict.keys()), '4', self.messageQueue)
+        self.player1 = BaseBot(red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
+        self.player2 = BaseBot(blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
+        self.player3 = BaseBot(yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)
+        self.player4 = BaseBot(green, list(self.board.board_dict.keys()), '4', self.messageQueue, 3)
         self.player_list = [self.player1, self.player2, self.player3, self.player4]
         curses.curs_set(0)
         stdscr.nodelay(True)        # Enable non-blocking mode
@@ -137,12 +149,13 @@ class Game:
                 self.playersPlay()        
 
     def checkForWinner(self):
-        active = [p for p in self.player_list if p.amountOfOwned > 0]
-        if len(active) == 1:
-            self.winner = active[0].myname
-            self.EndGameStats = EndGameStats(
-                self.winner, self.turnCount, self.player_list)
-            self.EndGameStats.printInfo(self.messageQueue)
+        if not self.winner:
+            active = [p for p in self.player_list if p.amountOfOwned > 0]
+            if len(active) == 1:
+                self.winner = active[0].myname
+                self.EndGameStats = EndGameStats(
+                    self.winner, self.turnCount, self.player_list)
+                self.EndGameStats.printInfo(self.messageQueue)
 
     def playersPlay(self):
         # get the current player
@@ -223,6 +236,8 @@ class Game:
             self.stepMode = True
 
     def setup(self):
+        # set up observation space
+        self.board.createDefaultTerritoryMatrix(len(self.player_list))
         # get all possible territory keys
         possible_terrs = list(self.board.board_dict.keys())
         player_ind = 0
@@ -232,7 +247,7 @@ class Game:
             # pick a random territory key
             terrind = random.randint(0, len(possible_terrs)-1)
             # add troops according to the current player index
-            self.board.addTroops(possible_terrs[terrind], 1, player_list[player_ind].color)
+            self.board.addTroops(possible_terrs[terrind], 1, player_list[player_ind])
             
             # give that player the territory
             player_list[player_ind].gainATerritory(possible_terrs[terrind])
@@ -244,8 +259,8 @@ class Game:
             player_ind = player_ind % len(self.player_list)
 
     def doAttack(self, terrkeyAttack, terrkeyFrom):
-        terrAttacker = self.board.getTerritory(terrkeyFrom)
-        terrDefender = self.board.getTerritory(terrkeyAttack)
+        terrAttacker, tindex = self.board.getTerritory(terrkeyFrom)
+        terrDefender, tindex = self.board.getTerritory(terrkeyAttack)
 
         playerA = self.getPlayerFromColor(terrAttacker.color)
         playerB = self.getPlayerFromColor(terrDefender.color)
@@ -284,9 +299,8 @@ class Game:
                 rollsB = 1
             else:
                 # defender lost, move attacker troops into territory
-                terrDefender.troops = terrAttacker.troops - 1
-                terrDefender.color = terrAttacker.color
-                terrAttacker.troops = 1
+                self.board.setTroops(terrkeyAttack, terrAttacker.troops - 1, playerA)
+                self.board.setTroops(terrkeyFrom, 1, playerA)
                 playerA.gainATerritory(terrkeyAttack)
                 playerA.attackRatio[0] += 1
                 playerA.attackRatio[1] += 1
@@ -297,8 +311,8 @@ class Game:
 
             # roll for combat
             troopDiffA, troopDiffB = self.doRolls(rollsA, rollsB)
-            terrAttacker.troops -= troopDiffA
-            terrDefender.troops -= troopDiffB
+            self.board.removeTroops(terrkeyFrom, troopDiffA, playerA)
+            self.board.removeTroops(terrkeyAttack, troopDiffB, playerB)
 
         return attackPath
 

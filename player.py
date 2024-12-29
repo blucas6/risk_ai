@@ -1,7 +1,7 @@
 import random
 
 class Player:
-    def __init__(self, mycolor, terrList, myname, msgqueue):
+    def __init__(self, mycolor, terrList, myname, msgqueue, index):
         self.terrList = terrList        # List of all territories
         self.color = mycolor
         self.amountOfOwned = 0          # Amount of territories owned
@@ -9,6 +9,7 @@ class Player:
         self.myname = myname
         self.maxTriesForActions = 100
         self.msgqueue = msgqueue
+        self.index = index
         # for stats
         self.attackRatio = [0,0]
         self.defendRatio = [0,0]
@@ -30,7 +31,7 @@ class Player:
         for t in range(self.maxTriesForActions):
             terrkey = self.pickATerritoryPlaceTroops()
             if terrkey in self.myOwnedTerritories:
-                board_obj.addTroops(terrkey, available, self.color)
+                board_obj.addTroops(terrkey, available, self)
                 # stats
                 self.placedtroops += available
                 return True
@@ -44,10 +45,11 @@ class Player:
         terrOut = self.pickATerritoryFortifyFrom()
         self.msgqueue.addMessage(f'Fortify {terrIn} from {terrOut}')
         if board_obj.fortificationIsValid(terrIn, terrOut, self.color):
-            troops = board_obj.getTerritory(terrOut).troops - 1
+            theTerr, tindex = board_obj.getTerritory(terrOut)
+            troops = theTerr.troops - 1
             if troops > 0:
-                board_obj.addTroops(terrIn, troops, self.color)
-                board_obj.removeTroops(terrOut, troops)
+                board_obj.addTroops(terrIn, troops, self)
+                board_obj.removeTroops(terrOut, troops, self)
 
     def pickATerritory(self):
         return self.terrList[random.randint(0,len(self.terrList)-1)]
