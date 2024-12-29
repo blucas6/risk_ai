@@ -59,6 +59,10 @@ class EndGameStats:
             msgqueue.addMessage(f'  Defend Winrate: {ratio}% [{p.defendRatio[0]}/{p.defendRatio[1]}]')
             msgqueue.addMessage(f'  Max Territories: {p.maxterritories}')
 
+class Move():
+    legal_move = 'Legal'
+    illegal_move = 'Illegal'
+
 # GAME CLASS
 #   Controls the entire game
 class Game:
@@ -165,20 +169,28 @@ class Game:
 
         # check if player can play
         if currPlayer.amountOfOwned > 0:
+            #store bool to see if it made a valid move
+            valid_move = Move().illegal_move
             # Phase 1. Place troops on the board
             if self.currentPhase == 1:
-                if not currPlayer.place_troops(self.board):
+                move = currPlayer.place_troops(self.board)
+                valid_move = Move().legal_move if move else Move().illegal_move
+                if not move:
                     self.messageQueue.addMessage('Warning: Failed to deploy troops reached max tries!')
                 self.currentPhase = 2
             # Phase 2. Attack
             elif self.currentPhase == 2:
-                if self.handleAttack(currPlayer):
+                move,valid_move = self.handleAttack(currPlayer)
+                if move:
                     self.currentPhase = 3
             # Phase 3. Fortify
             elif self.currentPhase == 3:
-                currPlayer.fortify(self.board)
+                move = currPlayer.fortify(self.board)
+                valid_move = Move().legal_move if move else Move().illegal_move
                 self.currentPhase = 1
                 self.nextPlayer()
+            # Update Player Observation After Action
+            currPlayer.UpdateObservation(self.board,self.currentPhase,self.currentPlayer,valid_move)
         else:
             self.currentPlayer += 1
             self.currentPlayer = self.currentPlayer % len(self.player_list)
@@ -200,7 +212,7 @@ class Game:
         
         # validate attack, quit if invalid
         if not self.board.attackIsValid(terrkeyAttack, terrkeyFrom, currPlayer.color):
-            return True
+            return True, Move().illegal_move
         
         # determine winners
         attackPath = self.doAttack(terrkeyAttack, terrkeyFrom)
@@ -209,7 +221,7 @@ class Game:
         if attackPath == None:
             if self.printAttackDetails:
                 self.messageQueue.addMessage('ERROR: failed to make attack path!')
-            return True
+            return True, Move().illegal_move
         
         # set the display attack path
         self.currentAttackPath = attackPath
@@ -217,10 +229,10 @@ class Game:
 
         # check if done
         if random.randint(0,3) > 0:
-            return True
+            return True, Move().legal_move
         
         self.messageQueue.addMessage('Attacker attacks again!')
-        return False
+        return False, Move().legal_move
 
     def events(self, event):
         # end on enter
@@ -311,8 +323,10 @@ class Game:
 
             # roll for combat
             troopDiffA, troopDiffB = self.doRolls(rollsA, rollsB)
-            self.board.removeTroops(terrkeyFrom, troopDiffA, playerA)
-            self.board.removeTroops(terrkeyAttack, troopDiffB, playerB)
+            if troopDiffA != 0:
+                self.board.removeTroops(terrkeyFrom, troopDiffA, playerA)
+            if troopDiffB != 0:
+                self.board.removeTroops(terrkeyAttack, troopDiffB, playerB)
 
         return attackPath
 
