@@ -3,6 +3,7 @@ import random
 import time
 import argparse
 from datetime import datetime
+import threading
 
 from board import Board
 from player import Player
@@ -40,6 +41,9 @@ class Game:
         self.winner = ''                # fill with a player to end the game
         self.EndGameStats = None        # gets filled at the end of the game
 
+        # GRAPHS
+        self.showGraphs = args.charts   # Display model learning
+
         # MODIFIABLE
         self.printExtraDetails = args.debug     # Extra debug statements
         self.turnTime = 0                       # Frame delay between player turns
@@ -76,10 +80,10 @@ class Game:
         self.board = Board(self.white, self.messageQueue, self.printExtraDetails, self.mapSize)
 
         # PLAYERS
-        #self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()),
-        #        '1', self.messageQueue, 0,4,self.board.total_territories,3,100)
-        self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()),
-          '1', self.messageQueue, 0)
+        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()),
+                '1', self.messageQueue, 0,4,self.board.total_territories,3,100, self.showGraphs)
+        #self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()),
+         # '1', self.messageQueue, 0)
         self.player2 = BaseBot(self.blue, list(self.board.board_dict.keys()),
                 '2', self.messageQueue, 1)
         self.player3 = BaseBot(self.yellow, list(self.board.board_dict.keys()),
@@ -94,20 +98,25 @@ class Game:
         curses.curs_set(0)
         stdscr.nodelay(True)                # Enable non-blocking mode
         stdscr.timeout(self.inputTimeout)   # Set a timeout for getch()
+        try:
+            # GAME SETUP
+            self.newGame()
 
-        # GAME SETUP
-        self.newGame()
+            # GAME RUN
+            self.mainloop(stdscr)
 
-        # GAME RUN
-        self.mainloop(stdscr)
-
-        # END APP
-        self.messageQueue.endQueue()
+            # END APP
+            self.messageQueue.endQueue()
+        except Exception as e:
+            self.messageQueue.addMessage(e)
 
     # Sets up a new game
     def newGame(self):
         # Clear winner
         self.winner = ''
+
+        # Reset turns
+        self.turnCount = 0
         
         # PLAYERS
         #  Clear previous data but not stats
@@ -222,7 +231,8 @@ class Game:
 
     # Increment whose turn it is
     def nextPlayer(self):
-        self.turnCount += 1
+        if self.currentPlayer == 1:
+            self.turnCount += 1
         self.currentPlayer += 1
         self.currentPlayer = self.currentPlayer % len(self.player_list)
         self.currentAttackPath = []
@@ -260,6 +270,10 @@ class Game:
     def events(self, event):
         # end on enter
         if event in (10,13):
+            for p in self.player_list:
+                if p is TDACBot:
+                    p.graphthreadinstance.stop()
+                    p.graphthreadinstance.join()
             self.running = False
 
         # pause on space
@@ -400,7 +414,7 @@ class Game:
 
         # print the turn indicator
         stdscr.addstr(self.TurnIndicatorLocation[0], self.TurnIndicatorLocation[1],
-                      f'=Game {self.currentGame}=')
+                      f'=Game {self.currentGame} Turn {self.turnCount}=')
         for i,p in enumerate(self.player_list):
             status = f'Player {p.myname}'
             if p.myname == str(self.currentPlayer+1):
@@ -440,6 +454,8 @@ if __name__ == "__main__":
                         help='Delay time between getch()')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='Prints additional debug statements')
+    parser.add_argument('-c', '--charts', action='store_true',
+                        help='Shows model charts during gameplay')
     args = parser.parse_args()
     g = Game(args)
     curses.wrapper(g.start)

@@ -24,7 +24,7 @@ class MessageQueue:
         return msg
     
     def pushMsgToQueue(self, msg):
-        self.msgs.append(msg)
+        self.msgs.append(msg.replace('\n',''))
         if not self.fo.closed:
             self.fo.write(msg+'\n')
 

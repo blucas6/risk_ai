@@ -3,10 +3,19 @@ from player import Player
 from Models.config import *
 import numpy as np
 import math
+import threading
 import matplotlib.pyplot as plt
+import queue
+from matplotlib.animation import FuncAnimation
 class TDACBot(Player):
-    def __init__(self, mycolor, terrList, myname, msgqueue,index,num_players,num_territories,num_phases,max_troops,path=None):
+    def __init__(self, mycolor, terrList, myname, msgqueue,index,num_players,num_territories,num_phases,max_troops,showGraphs,updateGraphs=5,path=None):
         super().__init__(mycolor, terrList, myname, msgqueue,index)
+        self.graphThreadDataQueue = queue.Queue()
+        self.graphthreadinstance = threading.Thread(target=self.updateGraphThread, daemon=True)
+        self.currentGraphData = [[],[],[],[],[],[]]
+        self.updateGraphsEvery = updateGraphs
+        if showGraphs:
+            self.graphthreadinstance.start()
         if path is not None:
             self.place_troops_agent = TDActorCritic.load_model(path+"place_troops")
             self.attack_fortify_agent = TDActorCritic.load_model(path+"attack_fortify")
@@ -19,7 +28,8 @@ class TDACBot(Player):
                                       attack_fortify_action_size,0.2,0.9,
                                       [128],0.2,0.9,[128],[128],num_phases,
                                       num_players,max_troops)
-            self.set_debug_mode(True)
+            self.set_debug_mode(False)
+
     def initalize_agents(self,observation_size,place_action_size,attack_fortify_action_size,
                          place_troop_agent_exploration_rate,place_troop_agent_discount,
                          place_troop_agent_hidden_sizes,attack_fortify_agent_exploration_rate,attack_fortify_agent_discount,
@@ -59,7 +69,7 @@ class TDACBot(Player):
         phase_one_hot = np.eye(self.num_phases)[phase]
         player_one_hot = np.eye(self.num_players)[player]
         observation = np.concatenate([board_flat,phase_one_hot,player_one_hot]).reshape(1,-1)
-        print(f"Observation: {board_flat.shape}, {phase_one_hot.shape}, {player_one_hot.shape}, {observation.shape}")
+        # print(f"Observation: {board_flat.shape}, {phase_one_hot.shape}, {player_one_hot.shape}, {observation.shape}")
         return observation
     def sample_place_troop_action(self):
         self.place_troops_agent.get_observation(self.initial_observation)
@@ -98,20 +108,41 @@ class TDACBot(Player):
         afa_actor_loss = self.attack_fortify_agent.actor_loss
         afa_critic_loss = self.attack_fortify_agent.critic_loss
         afa_reward = self.attack_fortify_agent.reward
-        return pta_actor_loss,pta_critic_loss,pta_reward,afa_actor_loss,afa_critic_loss,afa_reward
+        # return pta_actor_loss,pta_critic_loss,pta_reward,afa_actor_loss,afa_critic_loss,afa_reward
+        self.graphThreadDataQueue.put([pta_actor_loss,pta_critic_loss,pta_reward,afa_actor_loss,afa_critic_loss,afa_reward])
     def graph_metrics(self):
         pta_al,pta_cl,pta_r,afa_al,afa_cl,afa_r = self.return_metrics()
         data = [pta_al,pta_cl,pta_r,afa_al,afa_cl,afa_r]
         titles = ['Place Troops Actor Loss','Place Troops Critic Loss',
                    'Place Troops Reward', 'Attack Fortify Actor Loss',
                    'Attack Fortify Critic Loss', 'Attack Fortify Reward']
-        fig,axes = plt.subplots(2,3,figsize=(12,16))
+        plt.ion()
+        fig,axes = plt.subplots(2,3,figsize=(8,4))
         axes = axes.flatten()
         for i, ax in enumerate(axes):
             ax.plot(data[i],color='blue')
             ax.set_title(titles[i])
         plt.tight_layout()
+        plt.show(block=False)
+
+    def updateGraphThread(self):
+        fig,axes = plt.subplots(2,3,figsize=(8,3))
+        # plt.subplots_adjust(left=1, right=1, top=1, bottom=1, wspace=1, hspace=1)
+        ani = FuncAnimation(fig, self.checkDataQueueThread, fargs=(axes,), interval=1000)
+        plt.tight_layout()
         plt.show()
+
+    def checkDataQueueThread(self, frame, axes):
+        while not self.graphThreadDataQueue.empty():
+            self.currentGraphData = self.graphThreadDataQueue.get()
+        titles = ['Place Troops Actor Loss','Place Troops Critic Loss',
+                   'Place Troops Reward', 'Attack Fortify Actor Loss',
+                   'Attack Fortify Critic Loss', 'Attack Fortify Reward']
+        axes = axes.flatten()
+        for i, ax in enumerate(axes):
+            ax.clear()
+            ax.plot(self.currentGraphData[i],color='blue')
+            ax.set_title(titles[i])
         
     ####OVERRIDE FUNCTIONS####
     def attack(self):
@@ -142,9 +173,10 @@ class TDACBot(Player):
             reward = 0 if move_legality else -1
         self.msgqueue.addMessage(f"Phase: {phase}, Received Reward: {reward}")
         self.add_experience(self.initial_observation,self.end_observation,self.action_index,reward,phase)
-        if (turn_count + 1) % 1000 == 0:
+        if (turn_count+1) % self.updateGraphsEvery == 0:
             self.update_agent(10,0.0001,32)
-            self.graph_metrics()
+            # self.graph_metrics()
+            self.return_metrics()
 
     #return the index to place troops in the territory array.
     def pickATerritoryPlaceTroops(self):
