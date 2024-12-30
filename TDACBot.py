@@ -143,14 +143,13 @@ class TDACBot(Player):
         titles = ['Place Troops Actor Loss','Place Troops Critic Loss',
                    'Place Troops Reward', 'Attack Fortify Actor Loss',
                    'Attack Fortify Critic Loss', 'Attack Fortify Reward']
-        plt.ion()
         fig,axes = plt.subplots(2,3,figsize=(8,4))
         axes = axes.flatten()
         for i, ax in enumerate(axes):
             ax.plot(data[i],color='blue')
             ax.set_title(titles[i])
         plt.tight_layout()
-        plt.show(block=False)
+        plt.show()
 
     def updateGraphThread(self):
         fig,axes = plt.subplots(2,3,figsize=(8,3))
@@ -210,18 +209,17 @@ class TDACBot(Player):
         self.msgqueue.addMessage(f"Phase: {phase}, Received Reward: {reward}")
         self.add_experience(self.initial_observation,self.end_observation,self.action_index,reward,phase)
         if self.mode == "Training":
-            if (self.time_step * 3) % 3000 == 0:
+            if (self.time_step // 3 + 1) % 1000 == 0:
                 self.update_agent(10,0.0001,32)
-            if (self.time_step * 3) % 10000 == 0:
+            if (self.time_step // 3  + 1) % 10000 == 0:
                 turns = self.time_step
                 TDActorCritic.save_model(self.place_troops_agent,f"{self.save_name}_{turns}_pta")
                 TDActorCritic.save_model(self.place_troops_agent,f"{self.save_name}_{turns}_afa")
-            if (self.time_step * 3) % 5000 == 0:
-                self.graph_metrics()
-                pass
+            if (self.time_step // 3 + 1) % self.updateGraphsEvery == 0:
+                self.return_metrics()
         elif self.mode == "Evaluation":
-             if (self.time_step * 3) % 1000 == 0:
-                self.graph_metrics()
+             if (self.time_step // 3 + 1) % 1000 == 0:
+                self.return_metrics()
     
     #return the index to place troops in the territory array.
     def pickATerritoryPlaceTroops(self):

@@ -80,7 +80,7 @@ class Game:
         self.board = Board(self.white, self.messageQueue, self.printExtraDetails, self.mapSize)
 
         # PLAYERS
-        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0,2,self.board.total_territories,3,100,None,"agent1",mode="Training")
+        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0,2,self.board.total_territories,3,100,True,5,None,"agent1",mode="Training",)
         #self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
         self.player2 = Player(self.blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
         #self.player3 = Player(self.yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)
@@ -93,17 +93,14 @@ class Game:
         curses.curs_set(0)
         stdscr.nodelay(True)                # Enable non-blocking mode
         stdscr.timeout(self.inputTimeout)   # Set a timeout for getch()
-        try:
-            # GAME SETUP
-            self.newGame()
+        # GAME SETUP
+        self.newGame()
 
-            # GAME RUN
-            self.mainloop(stdscr)
+        # GAME RUN
+        self.mainloop(stdscr)
 
-            # END APP
-            self.messageQueue.endQueue()
-        except Exception as e:
-            self.messageQueue.addMessage(e)
+        # END APP
+        self.messageQueue.endQueue()
 
     # Sets up a new game
     def newGame(self):
