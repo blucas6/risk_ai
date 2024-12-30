@@ -80,19 +80,14 @@ class Game:
         self.board = Board(self.white, self.messageQueue, self.printExtraDetails, self.mapSize)
 
         # PLAYERS
-        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()),
-                '1', self.messageQueue, 0,4,self.board.total_territories,3,100, self.showGraphs)
-        #self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()),
-         # '1', self.messageQueue, 0)
-        self.player2 = BaseBot(self.blue, list(self.board.board_dict.keys()),
-                '2', self.messageQueue, 1)
-        self.player3 = BaseBot(self.yellow, list(self.board.board_dict.keys()),
-                '3', self.messageQueue, 2)
-        self.player4 = BaseBot(self.green, list(self.board.board_dict.keys()),
-                '4', self.messageQueue, 3)
+        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0,2,self.board.total_territories,3,100,None,"agent1",mode="Training")
+        #self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
+        self.player2 = Player(self.blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
+        #self.player3 = Player(self.yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)
+        #self.player4 = Player(self.green, list(self.board.board_dict.keys()), '4', self.messageQueue, 3)
 
         # PLAYER LIST (Modify to adjust the amount of players)
-        self.player_list = [self.player1, self.player2, self.player3, self.player4]
+        self.player_list = [self.player1, self.player2]#self.player3, self.player4]
 
         #curses info
         curses.curs_set(0)
@@ -220,8 +215,9 @@ class Game:
                 valid_move = Move().legal_move if move else Move().illegal_move
                 self.currentPhase = 1
                 self.nextPlayer()
-            # Update Player Observation After Action,
-            currPlayer.UpdateObservation(self.board.territoryMatrix,phase,player,valid_move,self.turnCount)
+            # Update Player Observation After Action
+            legality = True if valid_move == Move().legal_move else False
+            currPlayer.UpdateObservation(self.board.territoryMatrix,phase,player,legality)
         else:
             self.currentPlayer += 1
             self.currentPlayer = self.currentPlayer % len(self.player_list)

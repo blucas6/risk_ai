@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import queue
 from matplotlib.animation import FuncAnimation
 class TDACBot(Player):
-    def __init__(self, mycolor, terrList, myname, msgqueue,index,num_players,num_territories,num_phases,max_troops,showGraphs,updateGraphs=5,path=None):
+    def __init__(self, mycolor, terrList, myname, msgqueue,index,num_players,num_territories,num_phases,max_troops,showGraphs,updateGraphs=5,load_name=None,save_name=None,mode='Train'):
         super().__init__(mycolor, terrList, myname, msgqueue,index)
         self.graphThreadDataQueue = queue.Queue()
         self.graphthreadinstance = threading.Thread(target=self.updateGraphThread, daemon=True)
@@ -16,10 +16,23 @@ class TDACBot(Player):
         self.updateGraphsEvery = updateGraphs
         if showGraphs:
             self.graphthreadinstance.start()
-        if path is not None:
-            self.place_troops_agent = TDActorCritic.load_model(path+"place_troops")
-            self.attack_fortify_agent = TDActorCritic.load_model(path+"attack_fortify")
+
+        self.num_phases = num_phases
+        self.num_players = num_players
+        self.max_troops = max_troops
+        self.initial_observation = None
+        self.end_observation = None
+        self.action_index = None
+        self.time_step = 0
+        self.mode = mode
+        self.save_name = save_name
+
+        if load_name is not None:
+            self.place_troops_agent = TDActorCritic.load_model(load_name+"_pta")
+            self.attack_fortify_agent = TDActorCritic.load_model(load_name+"_afa")
             self.attack_fortify_agent.critic = self.place_troops_agent.critic
+            self.place_troops_agent.initialize_training()
+            self.attack_fortify_agent.initialize_training()
         else:
             observation_size = num_players * num_territories + num_phases + num_players
             place_action_size = num_territories
@@ -27,18 +40,23 @@ class TDACBot(Player):
             self.initalize_agents(observation_size,place_action_size,
                                       attack_fortify_action_size,0.2,0.9,
                                       [128],0.2,0.9,[128],[128],num_phases,
-                                      num_players,max_troops)
-            self.set_debug_mode(False)
-
+                                      num_players,max_troops,msgqueue)
+        self.set_debug_mode(False)
+        if self.mode == 'Evaluation':
+            self.place_troops_agent.exploration_rate = 0
+            self.attack_fortify_agent.exploration_rate = 0
+        self.msgqueue.addMessage(str(self.place_troops_agent))
+        self.msgqueue.addMessage(str(self.attack_fortify_agent))
+    
     def initalize_agents(self,observation_size,place_action_size,attack_fortify_action_size,
                          place_troop_agent_exploration_rate,place_troop_agent_discount,
                          place_troop_agent_hidden_sizes,attack_fortify_agent_exploration_rate,attack_fortify_agent_discount,
-                         attack_fortify_agent_hidden_sizes,shared_critic_hidden_sizes,num_phases,num_players,max_troops):
+                         attack_fortify_agent_hidden_sizes,shared_critic_hidden_sizes,num_phases,num_players,max_troops,msgqueue):
         
-        place_troop_agent = TDActorCritic(place_troop_agent_exploration_rate,place_troop_agent_discount)
+        place_troop_agent = TDActorCritic(place_troop_agent_exploration_rate,place_troop_agent_discount,msgqueue)
         place_troop_agent.initalize_actor(observation_size,place_action_size,place_troop_agent_hidden_sizes)
         place_troop_agent.initialize_critic(observation_size,shared_critic_hidden_sizes)
-        attack_fortify_agent = TDActorCritic(attack_fortify_agent_exploration_rate,attack_fortify_agent_discount)
+        attack_fortify_agent = TDActorCritic(attack_fortify_agent_exploration_rate,attack_fortify_agent_discount,msgqueue)
         attack_fortify_agent.initalize_actor(observation_size,attack_fortify_action_size,attack_fortify_agent_hidden_sizes)
         attack_fortify_agent.set_critic(place_troop_agent.critic)
         self.place_troops_agent = place_troop_agent
@@ -49,34 +67,42 @@ class TDACBot(Player):
         self.initial_observation = None
         self.end_observation = None
         self.action_index = None
+        self.time_step = 0
         self.msgqueue.addMessage(str(self.place_troops_agent))
         self.msgqueue.addMessage(str(self.attack_fortify_agent))
+    
     def save_player_agent(self,path):
         TDActorCritic.save_model(self.place_troops_agent,path+"place_troops")
         TDActorCritic.save_model(self.attack_fortify_agent,path+"attack_fortify")
+    
     def initialize_training(self):
         self.place_troops_agent.initalize_training()
         self.attack_fortify_agent.initalize_training()
+   
     def set_debug_mode(self,mode):
         self.place_troops_agent.set_debug_mode(mode)
         self.attack_fortify_agent.set_debug_mode(mode)
+    
     def update_agent(self,epochs,learning_rate,batch_size):
         self.place_troops_agent.update_actor_and_critic(epochs,learning_rate,batch_size)
         self.attack_fortify_agent.update_actor_and_critic(epochs,learning_rate,batch_size)
+    
     def set_observation(self,board,phase,player,max_troops):
         #returns reshaped observation space
         board_flat = np.array(board).reshape(-1) / max_troops
         phase_one_hot = np.eye(self.num_phases)[phase]
         player_one_hot = np.eye(self.num_players)[player]
         observation = np.concatenate([board_flat,phase_one_hot,player_one_hot]).reshape(1,-1)
-        # print(f"Observation: {board_flat.shape}, {phase_one_hot.shape}, {player_one_hot.shape}, {observation.shape}")
+        #print(f"Observation: {board_flat.shape}, {phase_one_hot.shape}, {player_one_hot.shape}, {observation.shape}")
         return observation
+    
     def sample_place_troop_action(self):
         self.place_troops_agent.get_observation(self.initial_observation)
         action = self.place_troops_agent.set_action()
         action_index = self.place_troops_agent.sample_action_from_distribution(action)
         self.action_index = action_index
         return action_index
+    
     def sample_attack_fortify_action(self):
         #set the current state observation
         self.attack_fortify_agent.get_observation(self.initial_observation)
@@ -101,6 +127,7 @@ class TDACBot(Player):
             self.place_troops_agent.add_experience(state,next_state,action_index,reward)
         else:
             self.attack_fortify_agent.add_experience(state,next_state,action_index,reward)
+    
     def return_metrics(self):
         pta_actor_loss = self.place_troops_agent.actor_loss
         pta_critic_loss = self.place_troops_agent.critic_loss
@@ -148,6 +175,7 @@ class TDACBot(Player):
     def attack(self):
         terrIn,terrOut = self.sample_attack_fortify_action()
         return (self.terrList[terrIn],self.terrList[terrOut])
+    
     def fortify(self, board_obj):
         terrIn,terrOut = self.sample_attack_fortify_action()
         terrIn = self.terrList[terrIn]
@@ -161,23 +189,40 @@ class TDACBot(Player):
                 board_obj.addTroops(terrIn, troops, self)
                 board_obj.removeTroops(terrOut, troops, self)
         return move
+    
     def InitialObservation(self,territory_matrix,phase,player):
         phase -= 1
         self.initial_observation = self.set_observation(territory_matrix,phase,player,self.max_troops)
-    def UpdateObservation(self,territory_matrix,phase,player,move_legality,turn_count):
+        #state value debug
+        value = self.place_troops_agent.critic.predict(self.initial_observation).reshape(-1)
+        self.msgqueue.addMessage(msg=f"Value of State: {value}")
+    
+    def UpdateObservation(self,territory_matrix,phase,player,move_legality):
+        self.time_step += 1
         phase -= 1
         self.end_observation = self.set_observation(territory_matrix,phase,player,self.max_troops)
         if phase == 0:
-            reward = np.sum(self.end_observation - self.initial_observation)
+            reward = np.sum(self.end_observation - self.initial_observation) * self.max_troops
+            if reward == 0:
+                reward = -10
         else:
-            reward = 0 if move_legality else -1
+            reward = 10 if move_legality else -10
         self.msgqueue.addMessage(f"Phase: {phase}, Received Reward: {reward}")
         self.add_experience(self.initial_observation,self.end_observation,self.action_index,reward,phase)
-        if (turn_count+1) % self.updateGraphsEvery == 0:
-            self.update_agent(10,0.0001,32)
-            # self.graph_metrics()
-            self.return_metrics()
-
+        if self.mode == "Training":
+            if (self.time_step * 3) % 3000 == 0:
+                self.update_agent(10,0.0001,32)
+            if (self.time_step * 3) % 10000 == 0:
+                turns = self.time_step
+                TDActorCritic.save_model(self.place_troops_agent,f"{self.save_name}_{turns}_pta")
+                TDActorCritic.save_model(self.place_troops_agent,f"{self.save_name}_{turns}_afa")
+            if (self.time_step * 3) % 5000 == 0:
+                self.graph_metrics()
+                pass
+        elif self.mode == "Evaluation":
+             if (self.time_step * 3) % 1000 == 0:
+                self.graph_metrics()
+    
     #return the index to place troops in the territory array.
     def pickATerritoryPlaceTroops(self):
         return self.terrList[self.sample_place_troop_action()]

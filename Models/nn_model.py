@@ -27,9 +27,9 @@ class NNModel:
                 self.train_batch(batchX,batchY,learning_rate)
             loss = self.get_loss(X,y)
             self.loss.append(loss)
-            debug_print(f"Epoch {epoch} Loss: {loss:.4f}")
+            #debug_print(f"Epoch {epoch} Loss: {loss:.4f}")
         training_accuracy = self.evaluate(X,y)
-        debug_print("Training Accuracy: " +  str(training_accuracy))
+        #debug_print("Training Accuracy: " +  str(training_accuracy))
         return self.loss
     def train_batch(self,batchX,batchY,learning_rate):
         y_pred = self.predict(batchX)
@@ -71,7 +71,7 @@ class NNModel:
     def linear_output(self,x):
         return x
     def __repr__(self):
-        rep = "Input Size: " + str(self.layers[0].input_size) + " Hidden Sizes: "
+        rep = f"ID: {id(self)} " + "Input Size: " + str(self.layers[0].input_size) + " Hidden Sizes: "
         hidden_sizes = [layer.hidden_nodes for layer in self.layers]
         for index,size in enumerate(hidden_sizes):
             rep += str(size) + ", " if index < len(hidden_sizes) - 1 else "Output Size: " + str(size)
