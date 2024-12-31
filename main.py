@@ -80,7 +80,7 @@ class Game:
         self.board = Board(self.white, self.messageQueue, self.printExtraDetails, self.mapSize)
 
         # PLAYERS
-        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0,2,self.board.total_territories,3,1000,self.showGraphs,5,None,"agent1",mode="Training")
+        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0,2,self.board.total_territories,3,1000,self.showGraphs,5,"Agents/agent1_89998","agent2",mode="Training")
         #self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
         self.player2 = Player(self.blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
         #self.player3 = Player(self.yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)

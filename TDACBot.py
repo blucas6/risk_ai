@@ -38,8 +38,8 @@ class TDACBot(Player):
             place_action_size = num_territories
             attack_fortify_action_size = num_territories*num_territories + 1
             self.initalize_agents(observation_size,place_action_size,
-                                      attack_fortify_action_size,0.2,0.9,
-                                      [128],0.2,0.9,[128],[128],num_phases,
+                                      attack_fortify_action_size,0.1,0.99,
+                                      [128],0.1,0.99,[128],[128],num_phases,
                                       num_players,max_troops,msgqueue)
         self.set_debug_mode(False)
         if self.mode == 'Evaluation':
@@ -67,7 +67,7 @@ class TDACBot(Player):
         self.initial_observation = None
         self.end_observation = None
         self.action_index = None
-        self.time_step = 0
+        self.time_step = 1
         self.msgqueue.addMessage(str(self.place_troops_agent))
         self.msgqueue.addMessage(str(self.attack_fortify_agent))
     
@@ -208,17 +208,17 @@ class TDACBot(Player):
             reward = 10 if move_legality else -10
         self.msgqueue.addMessage(f"Phase: {phase}, Received Reward: {reward}")
         self.add_experience(self.initial_observation,self.end_observation,self.action_index,reward,phase)
-        if self.mode == "Training" and phase == 2:
-            if (self.time_step // 3 + 1) % 1000 == 0:
-                self.update_agent(10,0.0001,32)
-            if (self.time_step // 3 + 1) % 10000 == 0:
+        if self.mode == "Training" and phase == 1:
+            if (self.time_step // 3) % 1000 == 0:
+                self.update_agent(8,0.0001,32)
+            if (self.time_step // 3) % 5000 == 0:
                 turns = self.time_step
                 TDActorCritic.save_model(self.place_troops_agent,f"{self.save_name}_{turns}_pta")
-                TDActorCritic.save_model(self.place_troops_agent,f"{self.save_name}_{turns}_afa")
-            if (self.time_step // 3 + 1) % self.updateGraphsEvery == 0:
+                TDActorCritic.save_model(self.attack_fortify_agent,f"{self.save_name}_{turns}_afa")
+            if (self.time_step // 3) % self.updateGraphsEvery == 0:
                 self.return_metrics()
         elif self.mode == "Evaluation":
-             if (self.time_step // 3 + 1) % 1000 == 0:
+             if (self.time_step // 3) % 1000 == 0:
                 self.return_metrics()
     
     #return the index to place troops in the territory array.
