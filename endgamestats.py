@@ -1,4 +1,5 @@
 from messagequeue import MessageQueue
+from player import Player
 
 class EndGameStats:
     def __init__(self, winner, totalturns, player_list, current_game):
@@ -10,9 +11,11 @@ class EndGameStats:
 
     # Adds the stats to the message queue
     #  If lastgame is true, it will print the total session stats instead
-    def printInfo(self, msgqueue: MessageQueue, lastgame=False):
+    def printInfo(self, msgqueue: MessageQueue, maxTroopsOnTerr=-1, playerWithMaxTroops: Player=None, lastgame=False):
         if lastgame:
             msgqueue.addMessage(f'** End of {self.current_game} Game Session **')
+            if maxTroopsOnTerr > -1:
+                msgqueue.addMessage(f'Max Troops on a Territory: {maxTroopsOnTerr} (P{playerWithMaxTroops.myname})')
             for p in self.player_list:
                 msgqueue.addMessage(f' Player {p.myname} Wins: {p.gameswon} ({round((p.gameswon/self.current_game)*100,2)}%)')
                 if p.totalAttackRatio[1] == 0:

@@ -8,7 +8,7 @@ import threading
 from board import Board
 from player import Player
 from basebot import BaseBot
-from tdacbot import TDACBot
+from TDACBot import TDACBot
 from messagequeue import MessageQueue
 from endgamestats import EndGameStats
 
@@ -80,7 +80,7 @@ class Game:
         self.board = Board(self.white, self.messageQueue, self.printExtraDetails, self.mapSize)
 
         # PLAYERS
-        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0,2,self.board.total_territories,3,100,True,5,None,"agent1",mode="Training",)
+        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0,2,self.board.total_territories,3,1000,self.showGraphs,5,'Agents/agent1_30000',"agent1",mode="Training",)
         #self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
         self.player2 = Player(self.blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
         #self.player3 = Player(self.yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)
@@ -106,6 +106,9 @@ class Game:
     def newGame(self):
         # Clear winner
         self.winner = ''
+
+        # Reset board
+        self.board.reset()
 
         # Reset turns
         self.turnCount = 0
@@ -169,7 +172,10 @@ class Game:
                 # if done playing print all game stats
                 if self.currentGame >= self.maxGames:
                     if self.maxGames > 1:
-                        self.EndGameStats.printInfo(self.messageQueue, lastgame=True)
+                        self.EndGameStats.printInfo(self.messageQueue,
+                            self.board.maxTroopsOnTerr, 
+                            self.getPlayerFromColor(self.board.maxTroopsOnTerrColor), 
+                            lastgame=True)
                     else:
                         self.EndGameStats.printInfo(self.messageQueue)
                 else:
