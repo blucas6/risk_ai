@@ -4,11 +4,12 @@ import numpy as np
 import dill
 import os
 class TDActorCritic:
-    def __init__(self,exploration_rate,discount,msgqueue,debug_mode=False):
+    def __init__(self,exploration_rate,discount,msgqueue,debug_mode=False,max_data=50000):
         self.actor = None
         self.critic = None
         self.current_observation = None
         self.data = None
+        self.max_data = max_data
         self.exploration_rate = exploration_rate
         self.discount = discount
         self.msgqueue = msgqueue
@@ -47,7 +48,13 @@ class TDActorCritic:
         #self.debug_mode and print(f"New Experience Data--> State: {state.shape}, Next State: {next_state.shape}, Action Index: {action_index}, Reward: {reward}")
         self.reward.append(reward)
         new_data = np.concatenate([state.reshape(-1),next_state.reshape(-1),np.array([action_index]),np.array([reward])])
-        self.data = np.vstack((self.data,new_data)) if self.data is not None else new_data.reshape(1,-1)
+        if self.data is not None:
+            if self.data.shape[0] < self.max_data:
+                self.data = np.vstack((self.data,new_data))
+            else:
+                self.data = np.vstack((self.data[1:],new_data))
+        else:
+            self.data = new_data.reshape(1,-1)
         #self.debug_mode and debug_print (f"New Data: {new_data.shape}, All Data: {self.data.shape}")
     """update_actor_and_critic: This method uses the experience and transforms it into data that can be used to train the 
     actor and critic."""
