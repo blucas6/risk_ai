@@ -8,7 +8,7 @@ import threading
 from board import Board
 from player import Player
 from basebot import BaseBot
-from tdacbot import TDACBot
+from TDACBot import TDACBot
 from messagequeue import MessageQueue
 from endgamestats import EndGameStats
 
@@ -107,6 +107,9 @@ class Game:
         # Clear winner
         self.winner = ''
 
+        # Reset board
+        self.board.reset()
+
         # Reset turns
         self.turnCount = 0
         
@@ -169,7 +172,10 @@ class Game:
                 # if done playing print all game stats
                 if self.currentGame >= self.maxGames:
                     if self.maxGames > 1:
-                        self.EndGameStats.printInfo(self.messageQueue, lastgame=True)
+                        self.EndGameStats.printInfo(self.messageQueue,
+                            self.board.maxTroopsOnTerr, 
+                            self.getPlayerFromColor(self.board.maxTroopsOnTerrColor), 
+                            lastgame=True)
                     else:
                         self.EndGameStats.printInfo(self.messageQueue)
                 else:

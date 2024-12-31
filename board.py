@@ -23,6 +23,10 @@ class Territory:
         if territory_o in self.adjecency_list:
             return True
         return False
+    
+    def reset(self):
+        self.troops = 0
+        self.color = None
 
 # BOARD CLASS
 #  Contains all territories and manipulations of the territories
@@ -45,6 +49,10 @@ class Board:
         self.maxrows = 0                # amount of rows in map file
         self.maxcols = 0                # amount of cols in map file
         self.continents = continents    # amount of continents on the board
+
+        # STATS
+        self.maxTroopsOnTerr = 0
+        self.maxTroopsOnTerrColor = None
 
         # TERRITORY INFO
         self.board_dict = {}        # Contains all territories
@@ -142,6 +150,10 @@ class Board:
             terr.troops += num
             terr.color = player.color
             self.updateTerritoryMatrix(player.index, tindex, terr.troops)
+            # STATS
+            if terr.troops > self.maxTroopsOnTerr:
+                self.maxTroopsOnTerr = terr.troops
+                self.maxTroopsOnTerrColor = player.color
         
     # Setting the amount of troops on a territory to a fixed number
     def setTroops(self, terrkey, num, player: Player):
@@ -297,3 +309,7 @@ class Board:
     # returns distance
     def distance(self, pos1, pos2):
         return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
+    
+    def reset(self):
+        for name,t in self.board_dict.items():
+            t.reset()
