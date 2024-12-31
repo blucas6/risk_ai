@@ -208,7 +208,7 @@ class TDACBot(Player):
             reward = 10 if move_legality else -10
         self.msgqueue.addMessage(f"Phase: {phase}, Received Reward: {reward}")
         self.add_experience(self.initial_observation,self.end_observation,self.action_index,reward,phase)
-        if self.mode == "Training":
+        if self.mode == "Training" and phase == 2:
             if (self.time_step // 3 + 1) % 1000 == 0:
                 self.update_agent(10,0.0001,32)
             if (self.time_step // 3  + 1) % 10000 == 0:
