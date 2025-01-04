@@ -7,7 +7,7 @@ import threading
 
 from board import Board
 from player import Player
-from basebot import BaseBot
+from basebot import BaseBot, MediumBot
 from TDACBot import TDACBot
 from messagequeue import MessageQueue
 from endgamestats import EndGameStats
@@ -80,14 +80,15 @@ class Game:
         self.board = Board(self.white, self.messageQueue, self.printExtraDetails, self.mapSize)
 
         # PLAYERS
-        self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0,2,self.board.total_territories,3,1000,self.showGraphs,5, None,"agent1",mode="Training",)
-        #self.player1 = BaseBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0)
-        self.player2 = Player(self.blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1)
-        #self.player3 = Player(self.yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2)
-        #self.player4 = Player(self.green, list(self.board.board_dict.keys()), '4', self.messageQueue, 3)
+        # self.player1 = TDACBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0,2, self.board, 
+                            #    self.board.total_territories,3,1000,self.showGraphs,5, None,"agent1",mode="Training")
+        self.player1 = MediumBot(self.red, list(self.board.board_dict.keys()), '1', self.messageQueue, 0, self.board)
+        self.player2 = BaseBot(self.blue, list(self.board.board_dict.keys()), '2', self.messageQueue, 1, self.board)
+        self.player3 = BaseBot(self.yellow, list(self.board.board_dict.keys()), '3', self.messageQueue, 2, self.board)
+        self.player4 = BaseBot(self.green, list(self.board.board_dict.keys()), '4', self.messageQueue, 3, self.board)
 
         # PLAYER LIST (Modify to adjust the amount of players)
-        self.player_list = [self.player1, self.player2]#self.player3, self.player4]
+        self.player_list = [self.player1, self.player2, self.player3, self.player4]
 
         #curses info
         curses.curs_set(0)
@@ -202,7 +203,7 @@ class Game:
             # Phase 1. Place troops on the board
             if self.currentPhase == 1:
                 self.messageQueue.addMessage(f'-Player {self.player_list[self.currentPlayer].myname} turn-')
-                move = currPlayer.place_troops(self.board)
+                move = currPlayer.place_troops()
                 valid_move = Move().legal_move if move else Move().illegal_move
                 if not move:
                     self.messageQueue.addMessage('Warning: Failed to deploy troops reached max tries!')
@@ -214,7 +215,8 @@ class Game:
                     self.currentPhase = 3
             # Phase 3. Fortify
             elif self.currentPhase == 3:
-                move = currPlayer.fortify(self.board)
+                terrIn, terrOut = currPlayer.fortify()
+                move = self.handleFortify(terrIn, terrOut, currPlayer)
                 valid_move = Move().legal_move if move else Move().illegal_move
                 self.currentPhase = 1
                 self.nextPlayer()
@@ -227,6 +229,16 @@ class Game:
 
         if self.stepMode:
             self.stepMode = False
+
+    def handleFortify(self, terrIn, terrOut, player: Player):
+        move = self.board.fortificationIsValid(terrIn, terrOut, player.color)
+        if move:
+            theTerr, tindex = self.board.getTerritory(terrOut)
+            troops = theTerr.troops - 1
+            if troops > 0:
+                self.board.addTroops(terrIn, troops, player)
+                self.board.removeTroops(terrOut, troops, player)
+        return move
 
     # Increment whose turn it is
     def nextPlayer(self):

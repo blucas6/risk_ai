@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import queue
 from matplotlib.animation import FuncAnimation
 class TDACBot(Player):
-    def __init__(self, mycolor, terrList, myname, msgqueue,index,num_players,num_territories,num_phases,max_troops,showGraphs,updateGraphs=5,load_name=None,save_name=None,mode='Train'):
-        super().__init__(mycolor, terrList, myname, msgqueue,index)
+    def __init__(self, mycolor, terrList, myname, msgqueue,index,board_obj,num_players,num_territories,num_phases,max_troops,showGraphs,updateGraphs=5,load_name=None,save_name=None,mode='Train'):
+        super().__init__(mycolor, terrList, myname, msgqueue,index, board_obj)
         self.graphThreadDataQueue = queue.Queue()
         self.graphthreadinstance = threading.Thread(target=self.updateGraphThread, daemon=True)
         self.currentGraphData = [[],[],[],[],[],[]]

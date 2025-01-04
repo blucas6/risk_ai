@@ -6,9 +6,10 @@ from messagequeue import MessageQueue
 #  Default player class
 #  Picks random territories for every action
 class Player:
-    def __init__(self, mycolor, terrList, myname, msgqueue: MessageQueue, index):
+    def __init__(self, mycolor, terrList, myname, msgqueue: MessageQueue, index, board_obj):
         # Reference to game members
         self.msgqueue = msgqueue
+        self.board = board_obj
 
         self.terrList = terrList        # List of all territory keys
         self.color = mycolor            # Color of the player
@@ -63,12 +64,12 @@ class Player:
 
     # GAME ACTION Phase 1
     #  Asks the player where to place troops
-    def place_troops(self, board_obj):
+    def place_troops(self):
         available = self.amountOfOwned
         for t in range(self.maxTriesForActions):
             terrkey = self.pickATerritoryPlaceTroops()
             if terrkey in self.myOwnedTerritories:
-                board_obj.addTroops(terrkey, available, self)
+                self.board.addTroops(terrkey, available, self)
                 # stats
                 self.placedtroops += available
                 self.msgqueue.addMessage(f'  Placed {available} troops at {terrkey}')
@@ -85,18 +86,12 @@ class Player:
 
     # GAME ACTION Phase 3
     #  Asks the player where to fortify from and to
-    def fortify(self, board_obj):
+    def fortify(self):
         terrIn = self.pickATerritoryFortifyTo()
         terrOut = self.pickATerritoryFortifyFrom()
         self.msgqueue.addMessage(f'  Fortify {terrIn} from {terrOut}')
-        move = board_obj.fortificationIsValid(terrIn, terrOut, self.color)
-        if move:
-            theTerr, tindex = board_obj.getTerritory(terrOut)
-            troops = theTerr.troops - 1
-            if troops > 0:
-                board_obj.addTroops(terrIn, troops, self)
-                board_obj.removeTroops(terrOut, troops, self)
-        return move
+        return terrIn, terrOut
+    
     def InitialObservation(self,board_obj,phase,player):
         pass
     

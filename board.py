@@ -7,8 +7,9 @@ from player import Player
 # TERRITORY CLASS
 #  Holds all info for board territories
 class Territory:
-    def __init__(self, name, pos):
+    def __init__(self, name, pos, dkey):
         self.name = name            # Name of the territory, used for displaying ONLY (not dict key)
+        self.dkey = dkey            # Corresponding dictionary key
         self.adjecency_list = []    # List of all adjecent territories
         self.pos = pos              # Position on map, for displaying troops and attacks
         self.troops = 0             # Amount of troops on territory
@@ -66,15 +67,15 @@ class Board:
                                     # p2 [...]
 
         # NORTH AMERICA
-        self.board_dict['alaska'] = Territory('Alaska', [1,3])
-        self.board_dict['nwt'] = Territory('North West Territory', [1,14])
-        self.board_dict['alberta'] = Territory('Alberta', [4,9])
-        self.board_dict['ontario'] = Territory('Ontario', [4,17])
-        self.board_dict['quebec'] = Territory('Quebec', [4,24])
-        self.board_dict['wus'] = Territory('Western United States', [7,11])
-        self.board_dict['eus'] = Territory('Eastern United States', [7,20])
-        self.board_dict['greenland'] = Territory('Greenland', [1,32])
-        self.board_dict['ca'] = Territory('Central America', [9,12])
+        self.board_dict['alaska'] = Territory('Alaska', [1,3], 'alaska')
+        self.board_dict['nwt'] = Territory('North West Territory', [1,14], 'nwt')
+        self.board_dict['alberta'] = Territory('Alberta', [4,9], 'alberta')
+        self.board_dict['ontario'] = Territory('Ontario', [4,17], 'ontario')
+        self.board_dict['quebec'] = Territory('Quebec', [4,24], 'quebec')
+        self.board_dict['wus'] = Territory('Western United States', [7,11], 'wus')
+        self.board_dict['eus'] = Territory('Eastern United States', [7,20], 'eus')
+        self.board_dict['greenland'] = Territory('Greenland', [1,32], 'greenland')
+        self.board_dict['ca'] = Territory('Central America', [9,12], 'ca')
         self.connections('alaska', 'nwt')
         self.connections('alaska', 'alberta')
         self.connections('nwt', 'greenland')
@@ -92,10 +93,10 @@ class Board:
 
         # SOUTH AMERICA
         if self.continents > 0:
-            self.board_dict['venezuela'] = Territory('Venezuela', [13,18])
-            self.board_dict['peru'] = Territory('Peru', [18,17])
-            self.board_dict['brazil'] = Territory('Brazil', [16,23])
-            self.board_dict['argentina'] = Territory('Argentina', [21,19])
+            self.board_dict['venezuela'] = Territory('Venezuela', [13,18], 'venezuela')
+            self.board_dict['peru'] = Territory('Peru', [18,17], 'peru')
+            self.board_dict['brazil'] = Territory('Brazil', [16,23], 'brazil')
+            self.board_dict['argentina'] = Territory('Argentina', [21,19], 'argentina')
             self.connections('venezuela', 'ca')
             self.connections('venezuela', 'peru')
             self.connections('venezuela', 'brazil')
@@ -119,11 +120,19 @@ class Board:
         if self.continents > 4:
             pass
 
+        # Check board for correctness
+        self.checkSelf()
+
         # Load displaying map
         self.loadmap()
 
         #Total number of territories
         self.total_territories = len(list(self.board_dict.keys()))
+
+    def checkSelf(self):
+        for key,terr in self.board_dict.items():
+            if not terr.dkey in self.board_dict:
+                self.msgqueue.addMessage(f'CRITICAL ERROR: Missing dictionary key -> {terr.dkey}!!!')
 
     # Any update to the territories must update the observation matrix
     def updateTerritoryMatrix(self, playerindex, territoryindex, troops):
@@ -245,7 +254,7 @@ class Board:
             return self.board_dict[terrkey], keys.index(terrkey)
         else:
             self.msgqueue.addMessage(f'ERROR: Wrong key -> {terrkey}')
-            return Territory('???', [0,0]), -1
+            return Territory('???', [0,0], ''), -1
 
     # Adds a connection the both territories
     def connections(self, terra, terrb):
