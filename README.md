@@ -2,4 +2,4 @@
 Reinforcement learning in Risk
 
 ## Tags
-Simulation, Terminal, AI
+Simulation, Terminal, AI/ML
